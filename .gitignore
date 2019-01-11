@@ -1,0 +1,7 @@
+*.o
+*~
+simtbs
+cscope.out
+*.conf
+*.tgz
+*.swp
