@@ -17,3 +17,6 @@ policy_dfs.o: simtbs.h
 
 tarball:
 	tar czvf simtbs.tgz *.[ch] *.tmpl Makefile
+
+clean:
+	rm -f simtbs *.o

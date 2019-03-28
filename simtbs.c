@@ -31,6 +31,7 @@ extern void run_tbs_on_all_sms(void);
 extern void check_new_arrived_kernel(void);
 
 extern void load_conf(const char *fpath);
+extern void report_sim(void);
 extern void report_result(void);
 
 void
@@ -103,6 +104,8 @@ runsim(void)
 		if (get_unscheduled_tb() && is_sm_resource_available(NULL, 1))
 			policy->schedule();
 		run_tbs_on_all_sms();
+		if (verbose)
+			report_sim();
 		simtime++;
 	}
 

@@ -5,6 +5,7 @@ static unsigned	sm_rsc_max;
 
 static unsigned	rsc_total;
 static unsigned	rsc_used;
+static unsigned	long long rsc_used_all;
 
 static LIST_HEAD(sms);
 static LIST_HEAD(overheads);
@@ -169,4 +170,20 @@ run_tbs_on_all_sms(void)
 		sm_t	*sm = list_entry(lp, sm_t, list);
 		run_tbs_on_sm(sm);
 	}
+	rsc_used_all += rsc_used;
+}
+
+BOOL
+get_sm_rsc_usage(double *psm_rsc_usage)
+{
+	if (rsc_used == 0)
+		return FALSE;
+	*psm_rsc_usage = (double)rsc_used / rsc_total * 100;
+	return TRUE;
+}
+
+double
+get_sm_rsc_usage_all(void)
+{
+	return (double)rsc_used_all / simtime / rsc_total * 100;
 }
