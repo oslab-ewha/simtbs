@@ -3,5 +3,6 @@
 simtbs
 cscope.out
 *.conf
+*.conf.*
 *.tgz
 *.swp

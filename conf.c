@@ -1,7 +1,5 @@
 #include "simtbs.h"
 
-extern void insert_kernel(unsigned start_ts, unsigned n_tb, unsigned tb_req, unsigned tb_len);
-
 extern void setup_sms(unsigned n_sms, unsigned sm_rsc_amx);
 extern void insert_overhead(unsigned n_tb, float tb_overhead);
 
@@ -9,6 +7,8 @@ extern void check_overhead_sanity(void);
 
 typedef enum {
 	SECT_UNKNOWN,
+	SECT_GENERAL,
+	SECT_WORKLOAD,
 	SECT_SM,
 	SECT_OVERHEAD,
 	SECT_KERNEL,
@@ -38,6 +38,10 @@ check_section(const char *line)
 {
 	if (*line != '*')
 		return FALSE;
+	if (strncmp(line + 1, "general", 7) == 0)
+		return SECT_GENERAL;
+	if (strncmp(line + 1, "workload", 8) == 0)
+		return SECT_WORKLOAD;
 	if (strncmp(line + 1, "sm", 2) == 0)
 		return SECT_SM;
 	if (strncmp(line + 1, "overhead", 8) == 0)
@@ -45,6 +49,79 @@ check_section(const char *line)
 	if (strncmp(line + 1, "kernel", 6) == 0)
 		return SECT_KERNEL;
 	return SECT_UNKNOWN;
+}
+
+static void
+parse_general(FILE *fp)
+{
+	char	buf[1024];
+	BOOL	gen_parsed = FALSE;
+
+	while (fgets(buf, 1024, fp)) {
+		if (buf[0] == '#')
+			continue;
+		if (buf[0] == '\n' || buf[0] == '*') {
+			fseek(fp, -1 * strlen(buf), SEEK_CUR);
+			return;
+		}
+		if (gen_parsed) {
+			FATAL(2, "multiple general lines: %s", trim(buf));
+		}
+		if (sscanf(buf, "%u", &max_simtime) != 1) {
+			FATAL(2, "cannot load configuration: invalid general format: %s", trim(buf));
+		}
+		gen_parsed = TRUE;
+	}
+}
+
+static BOOL
+parse_range(const char *c_rangestr, unsigned *pvalue_min, unsigned *pvalue_max)
+{
+	char	*rangestr, *minus;
+	BOOL	res = FALSE;
+
+	rangestr = strdup(c_rangestr);
+	minus = strchr(rangestr, '-');
+	if (minus == NULL)
+		goto out;
+	*minus = 0;
+	if (sscanf(rangestr, "%u", pvalue_min) != 1)
+		goto out;
+	if (sscanf(minus + 1, "%u", pvalue_max) != 1)
+		goto out;
+	res = TRUE;
+out:
+	return res;
+}
+
+static void
+parse_workload(FILE *fp)
+{
+	char	buf[1024];
+	BOOL	wl_parsed = FALSE;
+
+	while (fgets(buf, 1024, fp)) {
+		char	rangestr_n_tbs[1024], rangestr_tb_duration[1024];
+		if (buf[0] == '#')
+			continue;
+		if (buf[0] == '\n' || buf[0] == '*') {
+			fseek(fp, -1 * strlen(buf), SEEK_CUR);
+			return;
+		}
+		if (wl_parsed) {
+			FATAL(2, "multiple workload lines: %s", trim(buf));
+		}
+		if (sscanf(buf, "%u %u %s %s", &wl_level, &wl_max_starved, rangestr_n_tbs, rangestr_tb_duration) != 4) {
+			FATAL(2, "cannot load configuration: invalid workload format: %s", trim(buf));
+		}
+		if (!parse_range(rangestr_n_tbs, &wl_n_tbs_min, &wl_n_tbs_max)) {
+			FATAL(2, "cannot load configuration: invalid # of tbs format: %s", trim(buf));
+		}
+		if (!parse_range(rangestr_tb_duration, &wl_tb_duration_min, &wl_tb_duration_max)) {
+			FATAL(2, "cannot load configuration: invalid # of tbs format: %s", trim(buf));
+		}
+		wl_parsed = TRUE;
+	}
 }
 
 static void
@@ -140,6 +217,12 @@ parse_conf(FILE *fp)
 		if (buf[0] == '\n' || buf[0] == '#')
 			continue;
 		switch (check_section(buf)) {
+		case SECT_GENERAL:
+			parse_general(fp);
+			break;
+		case SECT_WORKLOAD:
+			parse_workload(fp);
+			break;
 		case SECT_SM:
 			parse_sm(fp);
 			break;

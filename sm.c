@@ -1,10 +1,9 @@
 #include "simtbs.h"
 
 unsigned	n_sms;
-static unsigned	sm_rsc_max;
+unsigned	sm_rsc_max;
 
-static unsigned	rsc_total;
-static unsigned	rsc_used;
+static unsigned	rsc_used, rsc_total;
 static unsigned	long long rsc_used_all;
 
 static LIST_HEAD(sms);
@@ -45,7 +44,7 @@ setup_sms(unsigned conf_n_sms, unsigned conf_sm_rsc_max)
 	rsc_total = n_sms * sm_rsc_max;
 }
 
-static float
+float
 get_overhead(unsigned rsc)
 {
 	struct list_head	*lp;
@@ -173,13 +172,10 @@ run_tbs_on_all_sms(void)
 	rsc_used_all += rsc_used;
 }
 
-BOOL
-get_sm_rsc_usage(double *psm_rsc_usage)
+double
+get_sm_rsc_usage(void)
 {
-	if (rsc_used == 0)
-		return FALSE;
-	*psm_rsc_usage = (double)rsc_used / rsc_total * 100;
-	return TRUE;
+	return (double)rsc_used / rsc_total * 100;
 }
 
 double

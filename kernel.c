@@ -1,16 +1,22 @@
 #include "simtbs.h"
+#include <math.h>
+
+extern BOOL gen_workload(void);
+extern float get_overhead(unsigned rsc);
 
 static LIST_HEAD(kernels_all);
 static LIST_HEAD(kernels_pending);
 static LIST_HEAD(kernels_running);
 
 static int	n_kernels;
+/* # of kernel which has no done TB */
+static int	n_kernels_starved;
 static int	n_kernels_done;
 
 static tb_t *
 create_tb(kernel_t *kernel)
 {
-	tb_t	*tb = (tb_t *)malloc(sizeof(tb_t));
+	tb_t	*tb = (tb_t *)calloc(1, sizeof(tb_t));
 	tb->kernel = kernel;
 	tb->work_remained = kernel->tb_duration;
 	INIT_LIST_HEAD(&tb->list_sm);
@@ -39,7 +45,7 @@ create_kernel(unsigned ts_start, unsigned n_tb, unsigned tb_rsc_req, unsigned tb
 	kernel->n_tb = n_tb;
 	kernel->tb_rsc_req = tb_rsc_req;
 	kernel->tb_duration = tb_duration;
-
+	kernel->starved = TRUE;
 	INIT_LIST_HEAD(&kernel->tbs);
 	INIT_LIST_HEAD(&kernel->list_all);
 	INIT_LIST_HEAD(&kernel->list_running);
@@ -47,6 +53,7 @@ create_kernel(unsigned ts_start, unsigned n_tb, unsigned tb_rsc_req, unsigned tb
 	setup_tbs(kernel);
 
 	n_kernels++;
+	n_kernels_starved++;
 	kernel->no = n_kernels;
 
 	return kernel;
@@ -65,6 +72,9 @@ insert_kernel(unsigned start_ts, unsigned n_tb, unsigned tb_rsc_req, unsigned tb
 void
 check_new_arrived_kernel(void)
 {
+	if (wl_genmode && (n_kernels_starved == 0 || n_kernels_starved < wl_max_starved)) {
+		gen_workload();
+	}
 	while (!list_empty(&kernels_pending)) {
 		kernel_t	*kernel = list_entry(kernels_pending.next, kernel_t, list_running);
 		if (kernel->ts_start == simtime) {
@@ -80,20 +90,25 @@ check_new_arrived_kernel(void)
 BOOL
 is_kernel_all_done(void)
 {
-	if (n_kernels == n_kernels_done)
+	if (!wl_genmode && n_kernels == n_kernels_done)
 		return TRUE;
 	return FALSE;
 }
 
-tb_t *
+static tb_t *
 get_unscheduled_kernel_tb(kernel_t *kernel)
 {
 	struct list_head	*lp;
 
 	list_for_each (lp, &kernel->tbs) {
 		tb_t	*tb = list_entry(lp, tb_t, list_kernel);
-		if (tb->sm == NULL)
+		if (tb->sm == NULL) {
+			if (kernel->starved) {
+				kernel->starved = FALSE;
+				n_kernels_starved--;
+			}
 			return tb;
+		}
 	}
 	return NULL;
 }
@@ -138,21 +153,89 @@ complete_tb(tb_t *tb)
 	}
 }
 
-static void
-show_kernel_stat(kernel_t *kernel)
+static unsigned
+get_runtime_SA(kernel_t *kernel)
 {
-	printf("kernel[%02d]: %d\n", kernel->no, kernel->ts_end - kernel->ts_start);
+	unsigned	n_tbs_kernel = kernel->n_tb;
+	double		runtime = 0;
+
+	while (n_tbs_kernel > 0) {
+		unsigned	n_tbs_per_sm = sm_rsc_max / kernel->tb_rsc_req;
+		unsigned	rsc_per_sm = n_tbs_per_sm * kernel->tb_rsc_req;
+		unsigned	n_tbs_max = n_tbs_per_sm * n_sms;
+		unsigned	n_tbs, tbs_rsc;
+
+		if (n_tbs_kernel > n_tbs_max) {
+			n_tbs = n_tbs_max;
+			tbs_rsc = rsc_per_sm;
+		}
+		else {
+			n_tbs = n_tbs_kernel;
+			tbs_rsc = ((unsigned)floor(n_tbs_kernel / n_sms)) * kernel->tb_rsc_req;
+		}
+
+		float	overhead = get_overhead(tbs_rsc);
+		runtime += kernel->tb_duration * (1 + overhead / (1 + overhead));
+
+		n_tbs_kernel -= n_tbs;
+	}
+
+	return (unsigned)floor(runtime);
+}
+
+static BOOL
+show_kernel_stat(kernel_t *kernel, double *pantt)
+{
+	if (kernel->ts_end > 0) {
+		unsigned	runtime = kernel->ts_end - kernel->ts_start;
+		unsigned	runtime_SA = get_runtime_SA(kernel);
+		double		antt = 1.0 * runtime_SA / runtime;
+
+		if (verbose)
+			printf("kernel[%02d]: %.1f\n", kernel->no, 100 * antt);
+		*pantt = antt;
+		return TRUE;
+	}
+	return FALSE;
 }
 
 void
 report_kernel_stat(void)
 {
 	struct list_head	*lp;
+	double	antt_sum = 0;
+	unsigned	n_kernels_stat;
 
 	printf("kernel statistics:\n");
 
 	list_for_each (lp, &kernels_all) {
 		kernel_t	*kernel = list_entry(lp, kernel_t, list_all);
-		show_kernel_stat(kernel);
+		double		antt;
+
+		if (show_kernel_stat(kernel, &antt)) {
+			antt_sum += antt;
+			n_kernels_stat++;
+		}
+	}
+
+	printf("ANTT: %.1lf%%\n", 100 * antt_sum / n_kernels_stat);
+}
+
+static void
+show_kernel_info(kernel_t *kernel)
+{
+	printf("%u %u %u %u\n", kernel->ts_start, kernel->n_tb, kernel->tb_rsc_req, kernel->tb_duration);
+}
+
+void
+show_kernel_infos(void)
+{
+	struct list_head	*lp;
+
+	printf("kernel informations:\n");
+
+	list_for_each (lp, &kernels_all) {
+		kernel_t	*kernel = list_entry(lp, kernel_t, list_all);
+		show_kernel_info(kernel);
 	}
 }
