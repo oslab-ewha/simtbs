@@ -72,6 +72,7 @@ void insert_kernel(unsigned start_ts, unsigned n_tb, unsigned tb_req, unsigned t
 tb_t *get_unscheduled_tb(void);
 unsigned get_tb_rsc_req(tb_t *tb);
 
+sm_t *get_first_sm(void);
 sm_t *get_next_sm(sm_t *sm);
 BOOL is_sm_resource_available(sm_t *sm, unsigned rsc_req);
 BOOL alloc_tb_on_sm(sm_t *sm, tb_t *tb);

@@ -9,7 +9,7 @@ usage(void)
 " <options>\n"
 "      -h: this message\n"
 "      -v: verbose mode\n"
-"      -p <tbs policy>: bfs(default), dfs\n"
+"      -p <tbs policy>: rr(default), rrf, bfa, dfa\n"
 "      -g <load ratio>: generate workload\n"
 	);
 }
@@ -22,11 +22,13 @@ BOOL	wl_genmode;
 
 BOOL	verbose;
 
-extern policy_t	policy_bfs;
-extern policy_t	policy_dfs;
+extern policy_t	policy_rr;
+extern policy_t	policy_rrf;
+extern policy_t	policy_bfa;
+extern policy_t	policy_dfa;
 
 static policy_t	*all_policies[] = {
-	&policy_bfs, &policy_dfs
+	&policy_rr, &policy_rrf, &policy_bfa, &policy_dfa
 };
 
 extern BOOL is_kernel_all_done(void);
@@ -101,7 +103,7 @@ parse_args(int argc, char *argv[])
 
 	load_conf(argv[optind]);
 	if (policy == NULL)
-		policy = &policy_bfs;
+		policy = &policy_rr;
 	if (wl_genmode) {
 		if (max_simtime == 0)
 			FATAL(3, "workload generation mode requires maximum simtime");

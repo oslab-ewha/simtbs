@@ -113,11 +113,19 @@ is_sm_resource_available(sm_t *sm, unsigned rsc_req)
 }
 
 sm_t *
+get_first_sm(void)
+{
+	if (list_empty(&sms))
+		return NULL;
+	return list_entry(sms.next, sm_t, list);
+}
+
+sm_t *
 get_next_sm(sm_t *sm)
 {
 	if (sm != NULL && sm->list.next != &sms)
 		return list_entry(sm->list.next, sm_t, list);
-	return list_entry(sms.next, sm_t, list);
+	return NULL;
 }
 
 BOOL

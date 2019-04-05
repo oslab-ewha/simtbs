@@ -3,23 +3,24 @@
 static sm_t	*sm_last;
 
 static sm_t *
-get_sm_by_bfs(unsigned rsc_req)
+get_sm_by_rrf(unsigned rsc_req)
 {
 	unsigned n_sm_tried = 0;
 
+	if (sm_last == NULL)
+		sm_last = get_first_sm();
 	while (n_sm_tried < n_sms) {
-		sm_t	*sm = get_next_sm(sm_last);
-		if (is_sm_resource_available(sm, rsc_req)) {
-			sm_last = sm;
-			return sm;
+		if (is_sm_resource_available(sm_last, rsc_req)) {
+			return sm_last;
 		}
+		sm_last = get_next_sm(sm_last);
 		n_sm_tried++;
 	}
 	return NULL;
 }
 
 static void
-schedule_bfs(void)
+schedule_rrf(void)
 {
 	tb_t	*tb;
 
@@ -28,7 +29,7 @@ schedule_bfs(void)
 		sm_t	*sm;
 
 		req_rsc = get_tb_rsc_req(tb);
-		sm = get_sm_by_bfs(req_rsc);
+		sm = get_sm_by_rrf(req_rsc);
 
 		if (sm == NULL)
 			return;
@@ -39,7 +40,7 @@ schedule_bfs(void)
 	}
 }
 
-policy_t	policy_bfs = {
-	"bfs",
-	schedule_bfs
+policy_t	policy_rrf = {
+	"rrf",
+	schedule_rrf
 };

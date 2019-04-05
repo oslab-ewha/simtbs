@@ -2,18 +2,17 @@ all: simtbs
 
 CFLAGS = -g -Wall -DDEBUG
 
-simtbs: simtbs.o conf.o kernel.o sm.o wl.o report.o policy_bfs.o policy_dfs.o
+POLICY = rr rrf bfa dfa
+
+SIMTBS_OBJS = simtbs.o conf.o kernel.o sm.o report.o wl.o
+POLICY_OBJS = $(POLICY:%=policy_%.o)
+
+simtbs: $(SIMTBS_OBJS) $(POLICY_OBJS)
 	gcc -o $@ $^ -lm
 
-simtbs.o: simtbs.h
-conf.o: simtbs.h
-kernel.o: simtbs.h
-sm.o: simtbs.h
-report.o: simtbs.h
-wl.o: simtbs.h
+$(SIMTBS_OBJS) $(POLICY_OBJS): simtbs.h
 
-policy_bfs.o: simtbs.h
-policy_dfs.o: simtbs.h
+$(POLICY_OBJS): simtbs.h
 
 tarball:
 	tar czvf simtbs.tgz *.[ch] *.tmpl Makefile
