@@ -187,7 +187,7 @@ static BOOL
 show_kernel_stat(kernel_t *kernel, double *pantt)
 {
 	if (kernel->ts_end > 0) {
-		unsigned	runtime = kernel->ts_end - kernel->ts_start;
+		unsigned	runtime = (kernel->ts_end - kernel->ts_start + 1);
 		unsigned	runtime_SA = get_runtime_SA(kernel);
 		double		antt = 1.0 * runtime_SA / runtime;
 
