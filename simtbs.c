@@ -1,5 +1,6 @@
 #include "simtbs.h"
 #include <time.h>
+#include <unistd.h>
 
 static void
 usage(void)
@@ -151,7 +152,7 @@ main(int argc, char *argv[])
 {
 	parse_args(argc, argv);
 
-	srand((int)time(NULL));
+	srand(getpid() + time(NULL));
 
 	runsim();
 
