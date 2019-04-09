@@ -5,6 +5,9 @@ extern void insert_overhead(unsigned n_tb, float tb_overhead);
 
 extern void check_overhead_sanity(void);
 
+extern void save_conf_sm_overheads(FILE *fp);
+extern void save_conf_kernel_infos(FILE *fp);
+
 typedef enum {
 	SECT_UNKNOWN,
 	SECT_GENERAL,
@@ -254,4 +257,26 @@ load_conf(const char *fpath)
 	fclose(fp);
 
 	check_overhead_sanity();
+}
+
+void
+save_conf(const char *fpath)
+{
+	FILE	*fp;
+
+	fp = fopen(fpath, "w");
+	if (fp == NULL) {
+		FATAL(1, "configuration cannot be saved: %s", fpath);
+	}
+
+	fprintf(fp, "*general\n");
+	fprintf(fp, "%u\n", max_simtime);
+
+	fprintf(fp, "*sm\n");
+	fprintf(fp, "%u %u\n", n_sms, sm_rsc_max);
+
+	save_conf_sm_overheads(fp);
+	save_conf_kernel_infos(fp);
+
+	fclose(fp);
 }

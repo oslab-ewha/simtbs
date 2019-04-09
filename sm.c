@@ -191,3 +191,17 @@ get_sm_rsc_usage_all(void)
 {
 	return (double)rsc_used_all / simtime / rsc_total * 100;
 }
+
+void
+save_conf_sm_overheads(FILE *fp)
+{
+	struct list_head	*lp;
+
+	fprintf(fp, "*overhead\n");
+
+	list_for_each (lp, &overheads) {
+		overhead_t	*oh = list_entry(lp, overhead_t, list);
+
+		fprintf(fp, "%u %f\n", oh->to_rsc, oh->tb_overhead);
+	}
+}

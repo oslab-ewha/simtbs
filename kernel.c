@@ -204,7 +204,7 @@ report_kernel_stat(void)
 {
 	struct list_head	*lp;
 	double	antt_sum = 0;
-	unsigned	n_kernels_stat;
+	unsigned	n_kernels_stat = 0;
 
 	printf("kernel statistics:\n");
 
@@ -218,24 +218,19 @@ report_kernel_stat(void)
 		}
 	}
 
-	printf("ANTT: %.1lf%%\n", 100 * antt_sum / n_kernels_stat);
-}
-
-static void
-show_kernel_info(kernel_t *kernel)
-{
-	printf("%u %u %u %u\n", kernel->ts_start, kernel->n_tb, kernel->tb_rsc_req, kernel->tb_duration);
+	if (n_kernels_stat > 0)
+		printf("ANTT: %.1lf%%\n", 100 * antt_sum / n_kernels_stat);
 }
 
 void
-show_kernel_infos(void)
+save_conf_kernel_infos(FILE *fp)
 {
 	struct list_head	*lp;
 
-	printf("kernel informations:\n");
+	fprintf(fp, "*kernel\n");
 
 	list_for_each (lp, &kernels_all) {
 		kernel_t	*kernel = list_entry(lp, kernel_t, list_all);
-		show_kernel_info(kernel);
+		fprintf(fp, "%u %u %u %u\n", kernel->ts_start, kernel->n_tb, kernel->tb_rsc_req, kernel->tb_duration);
 	}
 }

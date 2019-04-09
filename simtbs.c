@@ -10,7 +10,7 @@ usage(void)
 "      -h: this message\n"
 "      -v: verbose mode\n"
 "      -p <tbs policy>: rr(default), rrf, bfa, dfa\n"
-"      -g <load ratio>: generate workload\n"
+"      -g <new conf path>: generate workload\n"
 	);
 }
 
@@ -21,6 +21,8 @@ policy_t	*policy = NULL;
 BOOL	wl_genmode;
 
 BOOL	verbose;
+
+static char	*conf_path_new;
 
 extern policy_t	policy_rr;
 extern policy_t	policy_rrf;
@@ -36,10 +38,11 @@ extern void run_tbs_on_all_sms(void);
 extern void check_new_arrived_kernel(void);
 
 extern void load_conf(const char *fpath);
+extern void save_conf(const char *fpath);
 extern void report_sim(void);
 extern void report_result(void);
 
-extern void show_kernel_infos(void);
+extern void update_kernel_infos(void);
 
 void
 errmsg(const char *fmt, ...)
@@ -75,7 +78,7 @@ parse_args(int argc, char *argv[])
 {
 	int	c;
 
-	while ((c = getopt(argc, argv, "p:vgh")) != -1) {
+	while ((c = getopt(argc, argv, "p:vg:h")) != -1) {
 		switch (c) {
 		case 'p':
 			setup_policy(optarg);
@@ -85,6 +88,7 @@ parse_args(int argc, char *argv[])
 			break;
 		case 'g':
 			wl_genmode = TRUE;
+			conf_path_new = strdup(optarg);
 			break;
 		case 'h':
 			usage();
@@ -139,7 +143,7 @@ runsim(void)
 
 	report_result();
 	if (wl_genmode)
-		show_kernel_infos();
+		save_conf(conf_path_new);
 }
 
 int

@@ -10,7 +10,7 @@
   - -h 옵션을 주면 간단한 설명 표시됨
   - -p 옵션을 이용하여 정책을 지정할 수 있음
   - -v : verbose mode
-  - -g : kernel workload 자동 생성 모드
+  - -g : kernel workload 자동 생성 모드, 새로운 설정 파일 경로를 인자로 제공해야 함
 - simtbs.conf.tmpl을 참고하여 configuration file 생성
 - 현재 지원되는 스케쥴링 정책은 rr, rrf, bfa, dfa 4가지
 
