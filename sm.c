@@ -7,12 +7,13 @@ static unsigned	rsc_used, rsc_total;
 static unsigned	long long rsc_used_all;
 
 static LIST_HEAD(sms);
-static LIST_HEAD(overheads);
+static struct list_head overhead_pertype[MAX_KERNEL_TYPES];
 
 typedef struct {
 	unsigned	to_rsc;
-	float	tb_overhead;
-	struct list_head	list;
+	float		tb_overhead;
+  	unsigned	type;
+	struct list_head list;
 } overhead_t;
 
 extern void complete_tb(tb_t *tb);
@@ -45,58 +46,67 @@ setup_sms(unsigned conf_n_sms, unsigned conf_sm_rsc_max)
 }
 
 float
-get_overhead(unsigned rsc)
+get_overhead(unsigned rsc, unsigned type)
 {
 	struct list_head	*lp;
 
 	if (rsc <= 1)
 		return 0;
 
-	list_for_each (lp, &overheads) {
-		overhead_t	*oh = list_entry(lp, overhead_t, list);
-
+	list_for_each (lp, &overhead_pertype[type-1]) {
+		overhead_t     *oh = list_entry(lp, overhead_t, list);
 		if (rsc <= oh->to_rsc)
-			return oh->tb_overhead;
+	   		return oh->tb_overhead;
 	}
-
 	/* never reach */
 	return 1;
 }
 
 void
-insert_overhead(unsigned to_rsc, float tb_overhead)
+init_overhead(void)
 {
-	overhead_t	*oh;
-
-	if (!list_empty(&overheads)) {
-		overhead_t	*oh_last = list_entry(overheads.prev, overhead_t, list);
-		if (oh_last->to_rsc >= to_rsc) {
-			FATAL(2, "non-increasing resource value");
-		}
-		if (oh_last->tb_overhead >= tb_overhead) {
-			FATAL(2, "non-increasing overhead");
-		}
+	for (int i = 0; i < MAX_KERNEL_TYPES; i++) {
+		INIT_LIST_HEAD(&overhead_pertype[i]);
 	}
-
-	oh = (overhead_t *)malloc(sizeof(overhead_t));
-	oh->to_rsc = to_rsc;
-	oh->tb_overhead = tb_overhead;
-	list_add_tail(&oh->list, &overheads);
 }
 
 void
-check_overhead_sanity(void)
+insert_overhead(unsigned to_rsc, float tb_overhead[], unsigned number)
+{
+
+	overhead_t *oh;
+	for (int i = 0; i < number; i++) {
+	  if (!list_empty(&overhead_pertype[i])) {
+	  	overhead_t *oh_last = list_entry(overhead_pertype[i].prev, overhead_t, list);
+		if (oh_last->to_rsc >= to_rsc) {
+			FATAL(2, "non-increasing resource value");
+		}
+		if (oh_last->tb_overhead >= tb_overhead[i]) {
+			FATAL(2, "non-increasing overhead");
+		}
+	  }
+	  oh = (overhead_t *)malloc(sizeof(overhead_t));
+	  oh->to_rsc = to_rsc;
+	  oh->tb_overhead = tb_overhead[i];
+	  list_add_tail(&oh->list, &overhead_pertype[i]);
+	}
+		
+}
+void
+check_overhead_sanity(int n_kernel_types)
 {
 	overhead_t	*oh_last;
-
-	if (list_empty(&overheads)) {
-		FATAL(2, "empty overhead");
-	}
-	oh_last = list_entry(overheads.prev, overhead_t, list);
-	if (oh_last->to_rsc != sm_rsc_max) {
-		FATAL(2, "max overhead is not defined");
+	for (int i = 0; i < n_kernel_types; i++) {
+		if (list_empty(&overhead_pertype[i])) {
+			FATAL(2, "empty overhead");
+		}
+		oh_last = list_entry(overhead_pertype[i].prev, overhead_t, list);
+		if (oh_last->to_rsc != sm_rsc_max) {
+			FATAL(2, "max overhead is not defined");
+		}
 	}
 }
+
 
 BOOL
 is_sm_resource_available(sm_t *sm, unsigned rsc_req)
@@ -150,11 +160,12 @@ run_tbs_on_sm(sm_t *sm)
 	float	overhead;
 	struct list_head	*lp, *next;
 
-	overhead = get_overhead(sm->rsc_used);
+	overhead = 0;
 	list_for_each_n (lp, &sm->tbs, next) {
 		tb_t	*tb = list_entry(lp, tb_t, list_sm);
 
 		assert(tb->work_remained > 0);
+		overhead=get_overhead(sm->rsc_used,tb->kernel->kernel_type);
 		tb->work_remained -= (1 / (1 + overhead));
 		if (tb->work_remained <= 0) {
 			assert(sm->rsc_used >= tb->kernel->tb_rsc_req);
@@ -193,15 +204,30 @@ get_sm_rsc_usage_all(void)
 }
 
 void
-save_conf_sm_overheads(FILE *fp)
+save_conf_sm_overheads(FILE *fp, unsigned number)
 {
-	struct list_head	*lp;
-
 	fprintf(fp, "*overhead\n");
 
-	list_for_each (lp, &overheads) {
-		overhead_t	*oh = list_entry(lp, overhead_t, list);
-
-		fprintf(fp, "%u %f\n", oh->to_rsc, oh->tb_overhead);
+	float **overheadMatrix = (float **)malloc(sizeof(float **)*sm_rsc_max);
+	for (int j = 0; j < sm_rsc_max; j++) {
+		overheadMatrix[j] = (float *)malloc(sizeof(float)*number);
+	}
+	for (int i = 0; i < number; i++) {
+		struct list_head 	*lp;
+		unsigned index = 0;
+		list_for_each (lp, &overhead_pertype[i]) {
+			overhead_t	*oh = list_entry(lp, overhead_t, list);
+			overheadMatrix[index][i] = oh->tb_overhead;
+			index++;
+		}
+	}
+	unsigned res = 2;
+        for (int i = 0; i < sm_rsc_max-1; i++) {
+		fprintf(fp, "%u ", res);
+		for (int j = 0; j < number; j++) {
+			fprintf(fp, "%f ", overheadMatrix[i][j]);
+		}
+		fprintf(fp, "\n");
+		res++;
 	}
 }

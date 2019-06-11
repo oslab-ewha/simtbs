@@ -1,12 +1,14 @@
 #include "simtbs.h"
 
 extern void setup_sms(unsigned n_sms, unsigned sm_rsc_amx);
-extern void insert_overhead(unsigned n_tb, float tb_overhead);
+extern void insert_overhead(unsigned n_tb, float tb_overhead[], unsigned type);
 
-extern void check_overhead_sanity(void);
-
-extern void save_conf_sm_overheads(FILE *fp);
+extern void check_overhead_sanity(int n_kernel_types);
+extern void init_overhead(void);
+extern void save_conf_sm_overheads(FILE *fp, unsigned types);
 extern void save_conf_kernel_infos(FILE *fp);
+
+static int	n_kernel_types = 0;
 
 typedef enum {
 	SECT_UNKNOWN,
@@ -164,25 +166,38 @@ static void
 parse_overhead(FILE *fp)
 {
 	char	buf[1024];
-
 	while (fgets(buf, 1024, fp)) {
 		unsigned	to_rsc;
-		float		tb_overhead;
+		float		tb_overhead[MAX_KERNEL_TYPES];
+		int 		n;
 
 		if (buf[0] == '#')
-			continue;
+		        continue;
 		if (buf[0] == '\n' || buf[0] == '*') {
 			fseek(fp, -1 * strlen(buf), SEEK_CUR);
 			return;
 		}
-		if (sscanf(buf, "%u %f", &to_rsc, &tb_overhead) != 2) {
+		n = sscanf(buf, "%u %f %f %f %f %f %f %f %f %f %f",
+			   &to_rsc,
+			   &tb_overhead[0], &tb_overhead[1], &tb_overhead[2], &tb_overhead[3], &tb_overhead[4],
+			   &tb_overhead[5], &tb_overhead[6], &tb_overhead[7], &tb_overhead[8], &tb_overhead[9]);
+		if (n <= 1) {
 			FATAL(2, "cannot load configuration: invalid overhead format: %s", trim(buf));
+	        }
+		if (n_kernel_types == 0)
+			n_kernel_types = n - 1;
+		else if (n - 1 != n_kernel_types) {
+			FATAL(2, "overhead counts mismatched. Designated counts at first line: %u", n_kernel_types);
 		}
-
-		if (to_rsc <= 1 || tb_overhead == 0) {
+		if (to_rsc <= 1) {
 			FATAL(2, "resource less than or equal 1 or 0 overhead is not allowed: %s", trim(buf));
 		}
-		insert_overhead(to_rsc, tb_overhead);
+		for (int k = 0; k < n_kernel_types; k++) {
+			if (tb_overhead[k] == 0) {
+				FATAL(2, "0 overhead is not allowed: %s", trim(buf));
+			}
+		}
+		insert_overhead(to_rsc, tb_overhead, n_kernel_types);
 	}
 }
 
@@ -192,22 +207,22 @@ parse_kernel(FILE *fp)
 	char	buf[1024];
 
 	while (fgets(buf, 1024, fp)) {
-		unsigned	start_ts, n_tb, tb_rsc_req, tb_duration;
-
+	        unsigned	start_ts, n_tb, tb_rsc_req, tb_duration,kernel_type;
+	  
 		if (buf[0] == '#')
 			continue;
 		if (buf[0] == '\n' || buf[0] == '*') {
 			fseek(fp, -1 * strlen(buf), SEEK_CUR);
 			return;
 		}
-		if (sscanf(buf, "%u %u %u %u", &start_ts, &n_tb, &tb_rsc_req, &tb_duration) != 4) {
+		if (sscanf(buf, "%u %u %u %u %u ", &start_ts, &n_tb, &tb_rsc_req, &tb_duration, &kernel_type) != 5) {
 			FATAL(2, "cannot load configuration: invalid kernel format: %s", trim(buf));
 		}
 
 		if (start_ts == 0 || n_tb == 0 || tb_rsc_req == 0 || tb_duration == 0) {
 			FATAL(2, "kernel start timestamp, TB count, resource requirement or duration cannot be 0: %s", trim(buf));
 		}
-		insert_kernel(start_ts, n_tb, tb_rsc_req, tb_duration);
+		insert_kernel(start_ts, n_tb, tb_rsc_req, tb_duration, kernel_type);
 	}
 }
 
@@ -230,6 +245,7 @@ parse_conf(FILE *fp)
 			parse_sm(fp);
 			break;
 		case SECT_OVERHEAD:
+			init_overhead();
 			parse_overhead(fp);
 			break;
 		case SECT_KERNEL:
@@ -256,7 +272,7 @@ load_conf(const char *fpath)
 
 	fclose(fp);
 
-	check_overhead_sanity();
+	check_overhead_sanity(n_kernel_types);
 }
 
 void
@@ -275,7 +291,7 @@ save_conf(const char *fpath)
 	fprintf(fp, "*sm\n");
 	fprintf(fp, "%u %u\n", n_sms, sm_rsc_max);
 
-	save_conf_sm_overheads(fp);
+	save_conf_sm_overheads(fp, n_kernel_types);
 	save_conf_kernel_infos(fp);
 
 	fclose(fp);

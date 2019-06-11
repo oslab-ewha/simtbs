@@ -2,7 +2,7 @@
 #include <math.h>
 
 extern BOOL gen_workload(void);
-extern float get_overhead(unsigned rsc);
+extern float get_overhead(unsigned rsc, unsigned type);
 
 static LIST_HEAD(kernels_all);
 static LIST_HEAD(kernels_pending);
@@ -36,7 +36,7 @@ setup_tbs(kernel_t *kernel)
 }
 
 static kernel_t *
-create_kernel(unsigned ts_start, unsigned n_tb, unsigned tb_rsc_req, unsigned tb_duration)
+create_kernel(unsigned ts_start, unsigned n_tb, unsigned tb_rsc_req, unsigned tb_duration, unsigned kernel_type)
 {
 	kernel_t	*kernel;
 
@@ -45,6 +45,7 @@ create_kernel(unsigned ts_start, unsigned n_tb, unsigned tb_rsc_req, unsigned tb
 	kernel->n_tb = n_tb;
 	kernel->tb_rsc_req = tb_rsc_req;
 	kernel->tb_duration = tb_duration;
+	kernel->kernel_type=kernel_type;
 	kernel->starved = TRUE;
 	INIT_LIST_HEAD(&kernel->tbs);
 	INIT_LIST_HEAD(&kernel->list_all);
@@ -60,11 +61,10 @@ create_kernel(unsigned ts_start, unsigned n_tb, unsigned tb_rsc_req, unsigned tb
 }
 
 void
-insert_kernel(unsigned start_ts, unsigned n_tb, unsigned tb_rsc_req, unsigned tb_duration)
+insert_kernel(unsigned start_ts, unsigned n_tb, unsigned tb_rsc_req, unsigned tb_duration, unsigned kernel_type)
 {
 	kernel_t	*kernel;
-
-	kernel = create_kernel(start_ts, n_tb, tb_rsc_req, tb_duration);
+	kernel = create_kernel(start_ts, n_tb, tb_rsc_req, tb_duration,kernel_type);
 	list_add_tail(&kernel->list_all, &kernels_all);
 	list_add_tail(&kernel->list_running, &kernels_pending);
 }
@@ -94,6 +94,7 @@ is_kernel_all_done(void)
 		return TRUE;
 	return FALSE;
 }
+
 
 static tb_t *
 get_unscheduled_kernel_tb(kernel_t *kernel)
@@ -174,7 +175,7 @@ get_runtime_SA(kernel_t *kernel)
 			tbs_rsc = ((unsigned)floor(n_tbs_kernel / n_sms)) * kernel->tb_rsc_req;
 		}
 
-		float	overhead = get_overhead(tbs_rsc);
+		float overhead=get_overhead(tbs_rsc, kernel->kernel_type);
 		runtime += kernel->tb_duration * (1 + overhead / (1 + overhead));
 
 		n_tbs_kernel -= n_tbs;
@@ -231,6 +232,6 @@ save_conf_kernel_infos(FILE *fp)
 
 	list_for_each (lp, &kernels_all) {
 		kernel_t	*kernel = list_entry(lp, kernel_t, list_all);
-		fprintf(fp, "%u %u %u %u\n", kernel->ts_start, kernel->n_tb, kernel->tb_rsc_req, kernel->tb_duration);
+		fprintf(fp, "%u %u %u %u %u\n", kernel->ts_start, kernel->n_tb, kernel->tb_rsc_req, kernel->tb_duration,kernel->kernel_type);
 	}
 }

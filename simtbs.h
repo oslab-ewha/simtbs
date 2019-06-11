@@ -24,6 +24,8 @@
 
 typedef int	BOOL;
 
+#define MAX_KERNEL_TYPES	10
+
 typedef struct {
 	unsigned	no;
 	unsigned	ts_start;
@@ -33,14 +35,17 @@ typedef struct {
 	unsigned	n_tb_done;
 	unsigned	tb_rsc_req;
 	unsigned	tb_duration;
-
+        unsigned        kernel_type;
+ 
 	struct list_head	tbs;
 	struct list_head	list_running;
 	struct list_head	list_all;
 } kernel_t;
 
 typedef struct {
-	unsigned	rsc_used;
+	unsigned	cpursc_used;
+        unsigned        memrsc_used;
+        unsigned        rsc_used;
 	struct list_head	tbs;
 	struct list_head	list;
 } sm_t;
@@ -49,6 +54,7 @@ typedef struct {
 	kernel_t	*kernel;
 	sm_t		*sm;
 	float		work_remained;
+        unsigned        tb_type;
 	struct list_head	list_sm;
 	struct list_head	list_kernel;
 } tb_t;
@@ -67,7 +73,7 @@ extern BOOL	wl_genmode;
 extern unsigned wl_level, wl_max_starved;
 extern unsigned	wl_n_tbs_min, wl_n_tbs_max, wl_tb_duration_min, wl_tb_duration_max;
 
-void insert_kernel(unsigned start_ts, unsigned n_tb, unsigned tb_req, unsigned tb_len);
+void insert_kernel(unsigned start_ts, unsigned n_tb, unsigned tb_req, unsigned tb_len,unsigned kernel_type);
 
 tb_t *get_unscheduled_tb(void);
 unsigned get_tb_rsc_req(tb_t *tb);
