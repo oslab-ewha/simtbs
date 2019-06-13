@@ -156,15 +156,15 @@ alloc_tb_on_sm(sm_t *sm, tb_t *tb)
 static void
 run_tbs_on_sm(sm_t *sm)
 {
-	float	overhead;
+	unsigned	rsc_used_saved = sm->rsc_used;
 	struct list_head	*lp, *next;
 
-	overhead = 0;
 	list_for_each_n (lp, &sm->tbs, next) {
 		tb_t	*tb = list_entry(lp, tb_t, list_sm);
+		float	overhead;
 
 		assert(tb->work_remained > 0);
-		overhead = get_overhead(sm->rsc_used, tb->kernel->kernel_type);
+		overhead = get_overhead(rsc_used_saved, tb->kernel->kernel_type);
 		tb->work_remained -= (1 / (1 + overhead));
 		if (tb->work_remained <= 0) {
 			assert(sm->rsc_used >= tb->kernel->tb_rsc_req);
