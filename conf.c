@@ -208,7 +208,7 @@ parse_kernel(FILE *fp)
 
 	while (fgets(buf, 1024, fp)) {
 	        unsigned	start_ts, n_tb, tb_rsc_req, tb_duration,kernel_type;
-	  
+
 		if (buf[0] == '#')
 			continue;
 		if (buf[0] == '\n' || buf[0] == '*') {

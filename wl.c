@@ -22,6 +22,6 @@ gen_workload(void)
 		unsigned	duration = get_rand(wl_tb_duration_max - wl_tb_duration_min - 1);
 		unsigned        kernel_type=get_rand(n_kernel_type);
 
-		insert_kernel(simtime + 1, n_tb, rsc_req, duration,kernel_type);
+		insert_kernel(simtime + 1, n_tb, rsc_req, duration, kernel_type);
 	}
 }
