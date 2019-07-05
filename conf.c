@@ -1,20 +1,23 @@
 #include "simtbs.h"
 
-extern void setup_sms(unsigned n_sms, unsigned sm_rsc_amx);
-extern void insert_overhead(unsigned n_tb, float tb_overhead[], unsigned type);
+extern void setup_sms(unsigned n_sms, unsigned sm_rsc_max);
+extern void setup_mem(unsigned mem_rsc_max);
+extern void insert_overhead(unsigned n_tb, float tb_overhead, unsigned type);
 
-extern void check_overhead_sanity(int n_kernel_types);
+extern void check_overhead_sanity();
 extern void init_overhead(void);
-extern void save_conf_sm_overheads(FILE *fp, unsigned types);
+extern void save_conf_mem_overheads(FILE *fp);
+extern void save_conf_sm_overheads(FILE *fp);
 extern void save_conf_kernel_infos(FILE *fp);
 
-static int	n_kernel_types = 0;
+static unsigned		mem_overhead_inserted = 1;
 
 typedef enum {
 	SECT_UNKNOWN,
 	SECT_GENERAL,
 	SECT_WORKLOAD,
 	SECT_SM,
+	SECT_MEM,
 	SECT_OVERHEAD,
 	SECT_KERNEL,
 } section_t;
@@ -49,6 +52,8 @@ check_section(const char *line)
 		return SECT_WORKLOAD;
 	if (strncmp(line + 1, "sm", 2) == 0)
 		return SECT_SM;
+	if (strncmp(line + 1, "mem", 3) == 0)
+		return SECT_MEM;
 	if (strncmp(line + 1, "overhead", 8) == 0)
 		return SECT_OVERHEAD;
 	if (strncmp(line + 1, "kernel", 6) == 0)
@@ -130,6 +135,33 @@ parse_workload(FILE *fp)
 }
 
 static void
+parse_mem(FILE *fp)
+{
+	char	buf[1024];
+	BOOL	mem_parsed = FALSE;
+	while (fgets(buf, 1024, fp)) {
+		unsigned	mem_rsc_max;
+		if (buf[0] == '#')
+			continue;
+		if (buf[0] == '\n' || buf[0] == '*') {
+			fseek(fp, -1 * strlen(buf), SEEK_CUR);
+			return;
+		}
+		if (mem_parsed) {
+			FATAL(2, "multiple mem lines: %s", trim(buf));
+		}
+		if (sscanf(buf, "%u", &mem_rsc_max) != 1) {
+			FATAL(2, "cannot load configuration: invalid MEM format: %s", trim(buf));
+		}
+		if (mem_rsc_max == 0) {
+			FATAL(2, "maximum MEM resource cannot be 0: %s", trim(buf));
+		}
+		setup_mem(mem_rsc_max);
+		mem_parsed = TRUE;
+	}
+}
+
+static void
 parse_sm(FILE *fp)
 {
 	char	buf[1024];
@@ -168,36 +200,22 @@ parse_overhead(FILE *fp)
 	char	buf[1024];
 	while (fgets(buf, 1024, fp)) {
 		unsigned	to_rsc;
-		float		tb_overhead[MAX_KERNEL_TYPES];
-		int 		n;
+		float		tb_overhead;
 
 		if (buf[0] == '#')
-		        continue;
+			continue;
 		if (buf[0] == '\n' || buf[0] == '*') {
 			fseek(fp, -1 * strlen(buf), SEEK_CUR);
 			return;
 		}
-		n = sscanf(buf, "%u %f %f %f %f %f %f %f %f %f %f",
-			   &to_rsc,
-			   &tb_overhead[0], &tb_overhead[1], &tb_overhead[2], &tb_overhead[3], &tb_overhead[4],
-			   &tb_overhead[5], &tb_overhead[6], &tb_overhead[7], &tb_overhead[8], &tb_overhead[9]);
-		if (n <= 1) {
+		if (sscanf(buf, "%u %f", &to_rsc, &tb_overhead) != 2) {
 			FATAL(2, "cannot load configuration: invalid overhead format: %s", trim(buf));
-	        }
-		if (n_kernel_types == 0)
-			n_kernel_types = n - 1;
-		else if (n - 1 != n_kernel_types) {
-			FATAL(2, "overhead counts mismatched. Designated counts at first line: %u", n_kernel_types);
 		}
-		if (to_rsc <= 1) {
+
+		if (to_rsc <= 1 || tb_overhead == 0) {
 			FATAL(2, "resource less than or equal 1 or 0 overhead is not allowed: %s", trim(buf));
 		}
-		for (int k = 0; k < n_kernel_types; k++) {
-			if (tb_overhead[k] == 0) {
-				FATAL(2, "0 overhead is not allowed: %s", trim(buf));
-			}
-		}
-		insert_overhead(to_rsc, tb_overhead, n_kernel_types);
+		insert_overhead(to_rsc, tb_overhead, mem_overhead_inserted);
 	}
 }
 
@@ -207,7 +225,7 @@ parse_kernel(FILE *fp)
 	char	buf[1024];
 
 	while (fgets(buf, 1024, fp)) {
-	        unsigned	start_ts, n_tb, tb_rsc_req, tb_duration,kernel_type;
+		unsigned	start_ts, n_tb, tb_rsc_req, tb_mem_rsc_req, tb_duration;
 
 		if (buf[0] == '#')
 			continue;
@@ -215,14 +233,14 @@ parse_kernel(FILE *fp)
 			fseek(fp, -1 * strlen(buf), SEEK_CUR);
 			return;
 		}
-		if (sscanf(buf, "%u %u %u %u %u ", &start_ts, &n_tb, &tb_rsc_req, &tb_duration, &kernel_type) != 5) {
+		if (sscanf(buf, "%u %u %u %u %u ", &start_ts, &n_tb, &tb_rsc_req, &tb_mem_rsc_req, &tb_duration) != 5) {
 			FATAL(2, "cannot load configuration: invalid kernel format: %s", trim(buf));
 		}
 
 		if (start_ts == 0 || n_tb == 0 || tb_rsc_req == 0 || tb_duration == 0) {
 			FATAL(2, "kernel start timestamp, TB count, resource requirement or duration cannot be 0: %s", trim(buf));
 		}
-		insert_kernel(start_ts, n_tb, tb_rsc_req, tb_duration, kernel_type);
+		insert_kernel(start_ts, n_tb, tb_rsc_req, tb_mem_rsc_req, tb_duration);
 	}
 }
 
@@ -244,9 +262,12 @@ parse_conf(FILE *fp)
 		case SECT_SM:
 			parse_sm(fp);
 			break;
+		case SECT_MEM:
+			parse_mem(fp);
+			break;
 		case SECT_OVERHEAD:
-			init_overhead();
 			parse_overhead(fp);
+			mem_overhead_inserted = 2;
 			break;
 		case SECT_KERNEL:
 			parse_kernel(fp);
@@ -272,7 +293,7 @@ load_conf(const char *fpath)
 
 	fclose(fp);
 
-	check_overhead_sanity(n_kernel_types);
+	check_overhead_sanity();
 }
 
 void
@@ -291,7 +312,11 @@ save_conf(const char *fpath)
 	fprintf(fp, "*sm\n");
 	fprintf(fp, "%u %u\n", n_sms, sm_rsc_max);
 
-	save_conf_sm_overheads(fp, n_kernel_types);
+	fprintf(fp, "*mem\n");
+	fprintf(fp, "%u\n", mem_rsc_max);
+
+	save_conf_mem_overheads(fp);
+	save_conf_sm_overheads(fp);
 	save_conf_kernel_infos(fp);
 
 	fclose(fp);
