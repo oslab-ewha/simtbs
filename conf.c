@@ -2,15 +2,16 @@
 
 extern void setup_sms(unsigned n_sms, unsigned sm_rsc_max);
 extern void setup_mem(unsigned mem_rsc_max);
-extern void insert_overhead(unsigned n_tb, float tb_overhead, unsigned type);
+extern void insert_overhead_sm(unsigned n_tb, float tb_overhead);
+extern void insert_overhead_mem(unsigned memsize, float tb_overhead);
 
-extern void check_overhead_sanity();
+extern void check_overhead_sanity_sm(void);
+extern void check_overhead_sanity_mem(void);
+
 extern void init_overhead(void);
 extern void save_conf_mem_overheads(FILE *fp);
 extern void save_conf_sm_overheads(FILE *fp);
 extern void save_conf_kernel_infos(FILE *fp);
-
-static unsigned		mem_overhead_inserted = 1;
 
 typedef enum {
 	SECT_UNKNOWN,
@@ -18,7 +19,8 @@ typedef enum {
 	SECT_WORKLOAD,
 	SECT_SM,
 	SECT_MEM,
-	SECT_OVERHEAD,
+	SECT_OVERHEAD_SM,
+	SECT_OVERHEAD_MEM,
 	SECT_KERNEL,
 } section_t;
 
@@ -54,8 +56,10 @@ check_section(const char *line)
 		return SECT_SM;
 	if (strncmp(line + 1, "mem", 3) == 0)
 		return SECT_MEM;
-	if (strncmp(line + 1, "overhead", 8) == 0)
-		return SECT_OVERHEAD;
+	if (strncmp(line + 1, "overhead_sm", 11) == 0)
+		return SECT_OVERHEAD_SM;
+	if (strncmp(line + 1, "overhead_mem", 12) == 0)
+		return SECT_OVERHEAD_MEM;
 	if (strncmp(line + 1, "kernel", 6) == 0)
 		return SECT_KERNEL;
 	return SECT_UNKNOWN;
@@ -195,7 +199,7 @@ parse_sm(FILE *fp)
 }
 
 static void
-parse_overhead(FILE *fp)
+parse_overhead_sm(FILE *fp)
 {
 	char	buf[1024];
 	while (fgets(buf, 1024, fp)) {
@@ -215,7 +219,32 @@ parse_overhead(FILE *fp)
 		if (to_rsc <= 1 || tb_overhead == 0) {
 			FATAL(2, "resource less than or equal 1 or 0 overhead is not allowed: %s", trim(buf));
 		}
-		insert_overhead(to_rsc, tb_overhead, mem_overhead_inserted);
+		insert_overhead_sm(to_rsc, tb_overhead);
+	}
+}
+
+static void
+parse_overhead_mem(FILE *fp)
+{
+	char	buf[1024];
+	while (fgets(buf, 1024, fp)) {
+		unsigned	to_rsc;
+		float		tb_overhead;
+
+		if (buf[0] == '#')
+			continue;
+		if (buf[0] == '\n' || buf[0] == '*') {
+			fseek(fp, -1 * strlen(buf), SEEK_CUR);
+			return;
+		}
+		if (sscanf(buf, "%u %f", &to_rsc, &tb_overhead) != 2) {
+			FATAL(2, "cannot load configuration: invalid overhead format: %s", trim(buf));
+		}
+
+		if (to_rsc <= 1 || tb_overhead == 0) {
+			FATAL(2, "resource less than or equal 1 or 0 overhead is not allowed: %s", trim(buf));
+		}
+		insert_overhead_mem(to_rsc, tb_overhead);
 	}
 }
 
@@ -265,9 +294,11 @@ parse_conf(FILE *fp)
 		case SECT_MEM:
 			parse_mem(fp);
 			break;
-		case SECT_OVERHEAD:
-			parse_overhead(fp);
-			mem_overhead_inserted = 2;
+		case SECT_OVERHEAD_SM:
+			parse_overhead_sm(fp);
+			break;
+		case SECT_OVERHEAD_MEM:
+			parse_overhead_mem(fp);
 			break;
 		case SECT_KERNEL:
 			parse_kernel(fp);
@@ -293,7 +324,8 @@ load_conf(const char *fpath)
 
 	fclose(fp);
 
-	check_overhead_sanity();
+	check_overhead_sanity_sm();
+	check_overhead_sanity_mem();
 }
 
 void

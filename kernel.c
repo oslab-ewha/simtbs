@@ -2,7 +2,7 @@
 #include <math.h>
 
 extern BOOL gen_workload(void);
-extern float get_overhead(unsigned rsc, unsigned type);
+extern float get_overhead_mem_SA(unsigned rsc);
 
 static LIST_HEAD(kernels_all);
 static LIST_HEAD(kernels_pending);
@@ -177,7 +177,7 @@ get_runtime_SA(kernel_t *kernel)
 			mem_rsc = ((unsigned)floor(n_tbs_kernel / n_sms)) * kernel->tb_mem_rsc_req;
 		}
 
-		overhead = get_overhead(tbs_rsc, 1) + get_overhead(mem_rsc, 2);
+		overhead = get_overhead_sm(tbs_rsc) + get_overhead_mem_SA(mem_rsc);
 		runtime += kernel->tb_duration * (1 + overhead / (1 + overhead));   //?
 
 		n_tbs_kernel -= n_tbs;

@@ -2,22 +2,16 @@
 
 static unsigned	rsc_used, rsc_total;
 static unsigned	long long rsc_used_all;
-static unsigned mem_rsc_used;
 
-unsigned	n_sms, mem_rsc_max, sm_rsc_max;
+unsigned	n_sms, sm_rsc_max;
 
 static LIST_HEAD(sms);
-static LIST_HEAD(mem_overhead);
 static LIST_HEAD(sm_overhead);
 
-typedef struct {
-	unsigned	to_rsc;
-	float		tb_overhead;
-	unsigned	type;
-	struct list_head list;
-} overhead_t;
-
 extern void complete_tb(tb_t *tb);
+extern void assign_mem(unsigned mem_rsc_req);
+extern void revoke_mem(unsigned mem_rsc_req);
+extern float get_overhead_mem(unsigned mem_rsc_req);
 
 static sm_t *
 create_sm(void)
@@ -46,90 +40,47 @@ setup_sms(unsigned conf_n_sms, unsigned conf_sm_rsc_max)
 	rsc_total = n_sms * sm_rsc_max;
 }
 
-void
-setup_mem(unsigned conf_mem_rsc_max)
-{
-	mem_rsc_max = conf_mem_rsc_max;
-}
-
 float
-get_overhead(unsigned rsc, unsigned type)	//1: mem overhead, 2: sm overhead
+get_overhead_sm(unsigned rsc)
 {
 	struct list_head	*lp;
 
 	if (rsc <= 1)
 		return 0;
 
-	if (type == 1) {
-		list_for_each (lp, &mem_overhead) {
-			overhead_t     *oh = list_entry(lp, overhead_t, list);
-			if (rsc <= oh->to_rsc)
-				return oh->tb_overhead;
-		}
-	}
-	else {
 	list_for_each (lp, &sm_overhead) {
-			overhead_t     *oh = list_entry(lp, overhead_t, list);
-			if (rsc <= oh->to_rsc)
-				return oh->tb_overhead;
-		}
+		overhead_t     *oh = list_entry(lp, overhead_t, list);
+		if (rsc <= oh->to_rsc)
+			return oh->tb_overhead;
 	}
-	
 	/* never reach */
 	return 1;
 }
 
 void
-insert_overhead(unsigned to_rsc, float tb_overhead, unsigned mem_overhead_inserted)
+insert_overhead_sm(unsigned to_rsc, float tb_overhead)
 {
 	overhead_t	*oh;
 	
-	if (mem_overhead_inserted == 1) {
-	  
-		if (!list_empty(&mem_overhead)) {
-	  		overhead_t	*oh_last = list_entry(mem_overhead.prev, overhead_t, list);
-			if (oh_last->to_rsc >= to_rsc) {
-				FATAL(2, "non-increasing resource value");
-			}
-			if (oh_last->tb_overhead >= tb_overhead) {
-				FATAL(2, "non-increasing overhead");
-			}
-		  }
-		oh = (overhead_t *)malloc(sizeof(overhead_t));
-		oh->to_rsc = to_rsc;
-		oh->tb_overhead = tb_overhead;
-		list_add_tail(&oh->list, &mem_overhead);
-		
-	}
-	else {
-		if (!list_empty(&sm_overhead)) {
-	  		overhead_t	*oh_last = list_entry(sm_overhead.prev, overhead_t, list);
-			if (oh_last->to_rsc >= to_rsc) {
-				FATAL(2, "non-increasing resource value");
-			}
-			if (oh_last->tb_overhead >= tb_overhead) {
-				FATAL(2, "non-increasing overhead");
-			}
+	if (!list_empty(&sm_overhead)) {
+		overhead_t	*oh_last = list_entry(sm_overhead.prev, overhead_t, list);
+		if (oh_last->to_rsc >= to_rsc) {
+			FATAL(2, "non-increasing resource value");
 		}
-		oh = (overhead_t *)malloc(sizeof(overhead_t));
-		oh->to_rsc = to_rsc;
-		oh->tb_overhead = tb_overhead;
-		list_add_tail(&oh->list, &sm_overhead);
+		if (oh_last->tb_overhead >= tb_overhead) {
+			FATAL(2, "non-increasing overhead");
+		}
 	}
+	oh = (overhead_t *)malloc(sizeof(overhead_t));
+	oh->to_rsc = to_rsc;
+	oh->tb_overhead = tb_overhead;
+	list_add_tail(&oh->list, &sm_overhead);
 }
 
-
 void
-check_overhead_sanity()
+check_overhead_sanity_sm(void)
 {
 	overhead_t	*oh_last;
-	if (list_empty(&mem_overhead)) {
-		FATAL(2, "empty overhead");
-	}
-	oh_last = list_entry(mem_overhead.prev, overhead_t, list);
-	if (oh_last->to_rsc != mem_rsc_max) {
-		FATAL(2, "max mem overhead is not defined");
-	}
 
 	if (list_empty(&sm_overhead)) {
 		FATAL(2, "empty overhead");
@@ -138,7 +89,6 @@ check_overhead_sanity()
 	if (oh_last->to_rsc != sm_rsc_max) {
 		FATAL(2, "max sm overhead is not defined");
 	}
-	
 }
 
 BOOL
@@ -175,25 +125,17 @@ BOOL
 alloc_tb_on_sm(sm_t *sm, tb_t *tb)
 {
 	unsigned	rsc_req = tb->kernel->tb_rsc_req;
-	unsigned 	mem_rsc_req = tb->kernel->tb_mem_rsc_req;
 
 	if (sm->rsc_used + rsc_req > sm_rsc_max)
 		return FALSE;
-	if (mem_rsc_used + mem_rsc_req > mem_rsc_max) {
-		printf("require more memory resource: %d\n", mem_rsc_used + mem_rsc_req);
-		list_add_tail(&tb->list_sm, &sm->tbs);
-		sm->rsc_used += tb->kernel->tb_rsc_req;
-		rsc_used += tb->kernel->tb_rsc_req;
-		mem_rsc_used += tb->kernel->tb_mem_rsc_req;
-		tb->sm = sm;
-		return TRUE;
-	}
 
 	list_add_tail(&tb->list_sm, &sm->tbs);
 	sm->rsc_used += tb->kernel->tb_rsc_req;
 	rsc_used += tb->kernel->tb_rsc_req;
-	mem_rsc_used += tb->kernel->tb_mem_rsc_req;
+
 	tb->sm = sm;
+
+	assign_mem(tb->kernel->tb_mem_rsc_req);
 
 	return TRUE;
 }
@@ -202,23 +144,24 @@ static void
 run_tbs_on_sm(sm_t *sm)
 {
 	unsigned	rsc_used_saved = sm->rsc_used;
-	unsigned 	mem_rsc_used_saved = mem_rsc_used;
 	struct list_head	*lp, *next;
 
 	list_for_each_n (lp, &sm->tbs, next) {
 		tb_t	*tb = list_entry(lp, tb_t, list_sm);
+		unsigned	mem_rsc_req = tb->kernel->tb_mem_rsc_req;
 		float	overhead;
 
 		assert(tb->work_remained > 0);
-		overhead = get_overhead(rsc_used_saved, 2) + get_overhead(mem_rsc_used_saved, 1);
+		overhead = get_overhead_sm(rsc_used_saved) + get_overhead_mem(mem_rsc_req);
 		tb->work_remained -= (1 / (1 + overhead));
 		if (tb->work_remained <= 0) {
 			assert(sm->rsc_used >= tb->kernel->tb_rsc_req);
-			assert(mem_rsc_used >= tb->kernel->tb_mem_rsc_req);
 			sm->rsc_used -= tb->kernel->tb_rsc_req;
-			mem_rsc_used -= tb->kernel->tb_mem_rsc_req;
 			assert(rsc_used >= tb->kernel->tb_rsc_req);
 			rsc_used -= tb->kernel->tb_rsc_req;
+
+			revoke_mem(mem_rsc_req);
+
 			list_del_init(&tb->list_sm);
 			tb->sm = NULL;
 			complete_tb(tb);
@@ -255,22 +198,9 @@ save_conf_sm_overheads(FILE *fp)
 {
 	struct list_head	*lp;
 
-	fprintf(fp, "*overhead\n");
+	fprintf(fp, "*overhead_sm\n");
 
 	list_for_each (lp, &sm_overhead) {
-		overhead_t	*oh = list_entry(lp, overhead_t, list);
-
-		fprintf(fp, "%u %f\n", oh->to_rsc, oh->tb_overhead);
-	}
-}
-
-void
-save_conf_mem_overheads(FILE *fp)
-{
-	struct list_head	*lp;
-	fprintf(fp, "*overhead\n");
-
-	list_for_each (lp, &mem_overhead) {
 		overhead_t	*oh = list_entry(lp, overhead_t, list);
 
 		fprintf(fp, "%u %f\n", oh->to_rsc, oh->tb_overhead);

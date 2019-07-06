@@ -60,6 +60,13 @@ typedef struct {
 } tb_t;
 
 typedef struct {
+	unsigned	to_rsc;
+	float		tb_overhead;
+	unsigned	type;
+	struct list_head list;
+} overhead_t;
+
+typedef struct {
 	const char	*name;
 	void (*schedule)(void);
 } policy_t;
@@ -87,5 +94,7 @@ BOOL alloc_tb_on_sm(sm_t *sm, tb_t *tb);
 double get_sm_rsc_usage(void);
 
 void errmsg(const char *fmt, ...);
+
+float get_overhead_sm(unsigned rsc);
 
 #endif

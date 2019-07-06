@@ -4,7 +4,7 @@ CFLAGS = -g -Wall -DDEBUG
 
 POLICY = rr rrf bfa dfa
 
-SIMTBS_OBJS = simtbs.o conf.o kernel.o sm.o report.o wl.o
+SIMTBS_OBJS = simtbs.o conf.o kernel.o sm.o mem.o report.o wl.o
 POLICY_OBJS = $(POLICY:%=policy_%.o)
 
 simtbs: $(SIMTBS_OBJS) $(POLICY_OBJS)
