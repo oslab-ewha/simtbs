@@ -163,22 +163,21 @@ get_runtime_SA(kernel_t *kernel)
 		unsigned	n_tbs_per_sm = sm_rsc_max / kernel->tb_rsc_req;
 		unsigned	rsc_per_sm = n_tbs_per_sm * kernel->tb_rsc_req;
 		unsigned	n_tbs_max = n_tbs_per_sm * n_sms;
-		unsigned	n_tbs, tbs_rsc, mem_rsc;
+		unsigned	n_tbs, sm_rsc, mem_rsc;
 		float		overhead;
 
 		if (n_tbs_kernel > n_tbs_max) {
 			n_tbs = n_tbs_max;
-			mem_rsc = n_tbs_per_sm * kernel->tb_mem_rsc_req;
-			tbs_rsc = rsc_per_sm;
+			sm_rsc = rsc_per_sm;
 		}
 		else {
 			n_tbs = n_tbs_kernel;
-			tbs_rsc = ((unsigned)floor(n_tbs_kernel / n_sms)) * kernel->tb_rsc_req;
-			mem_rsc = ((unsigned)floor(n_tbs_kernel / n_sms)) * kernel->tb_mem_rsc_req;
+			sm_rsc = ((unsigned)floor(n_tbs_kernel / n_sms)) * kernel->tb_rsc_req;
 		}
+		mem_rsc = n_tbs * kernel->tb_mem_rsc_req;
 
-		overhead = get_overhead_sm(tbs_rsc) + get_overhead_mem_SA(mem_rsc);
-		runtime += kernel->tb_duration * (1 + overhead / (1 + overhead));   //?
+		overhead = get_overhead_sm(sm_rsc) + get_overhead_mem_SA(mem_rsc);
+		runtime += kernel->tb_duration * (1 + overhead);
 
 		n_tbs_kernel -= n_tbs;
 	}
