@@ -176,7 +176,7 @@ get_runtime_SA(kernel_t *kernel)
 		}
 		mem_rsc = n_tbs * kernel->tb_mem_rsc_req;
 
-		overhead = get_overhead_sm(sm_rsc) + get_overhead_mem_SA(mem_rsc);
+		overhead = get_overhead_sm(sm_rsc) + get_overhead_mem_SA(mem_rsc) / n_tbs;
 		runtime += kernel->tb_duration * (1 + overhead);
 
 		n_tbs_kernel -= n_tbs;
