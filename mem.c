@@ -23,7 +23,7 @@ get_mem_overhead(unsigned rsc)
 			if (oh_prev == NULL)
 				return oh->tb_overhead / oh->to_rsc * rsc;
 			return (oh->tb_overhead - oh_prev->tb_overhead) / (oh->to_rsc - oh_prev->to_rsc) *
-				(rsc - oh_prev->to_rsc);
+				(rsc - oh_prev->to_rsc) + oh_prev->tb_overhead;
 		}
 		oh_prev = oh;
 	}
