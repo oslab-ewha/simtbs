@@ -220,8 +220,10 @@ report_kernel_stat(void)
 		}
 	}
 
-	if (n_kernels_stat > 0)
+	if (n_kernels_stat > 0) {
 		printf("ANTT: %.1lf%%\n", 100 * antt_sum / n_kernels_stat);
+		printf("Kernel: %d\n", n_kernels_stat);
+	}
 }
 
 void

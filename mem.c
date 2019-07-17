@@ -2,7 +2,8 @@
 
 static unsigned mem_rsc_used;
 unsigned	mem_rsc_max;
-
+double 		mem_used_on_time;
+unsigned	mem_used_avg;
 static LIST_HEAD(mem_overhead);
 
 void
@@ -108,3 +109,15 @@ save_conf_mem_overheads(FILE *fp)
 		fprintf(fp, "%u %f\n", oh->to_rsc, oh->tb_overhead);
 	}
 }
+void
+update_mem_usage(void)
+{
+	mem_used_on_time += mem_rsc_used;
+}
+
+void
+report_mem_stat(void)
+{
+	printf("Mem: %.1f\n", mem_used_on_time / simtime);
+}
+  

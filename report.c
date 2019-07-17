@@ -2,6 +2,8 @@
 
 extern void report_kernel_stat(void);
 extern double get_sm_rsc_usage_all(void);
+extern void report_mem_stat(void);
+extern void report_TB_stat(void);
 
 extern policy_t	*policy;
 
@@ -24,4 +26,8 @@ report_result(void)
 	printf("SM utilization: %.2lf%%\n", usage_sm);
 
 	report_kernel_stat();
+
+	report_mem_stat();
+	report_TB_stat();
+	
 }

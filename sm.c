@@ -2,12 +2,14 @@
 
 static unsigned	rsc_used, rsc_total;
 static unsigned	long long rsc_used_all;
-
+static unsigned tb_on_run;
+double total_tb_run = 0;
 unsigned	n_sms, sm_rsc_max;
 
 static LIST_HEAD(sms);
 static LIST_HEAD(sm_overhead);
 
+extern void update_mem_usage(void);
 extern void complete_tb(tb_t *tb);
 extern void assign_mem(unsigned mem_rsc_req);
 extern void revoke_mem(unsigned mem_rsc_req);
@@ -150,6 +152,7 @@ run_tbs_on_sm(sm_t *sm)
 		tb_t	*tb = list_entry(lp, tb_t, list_sm);
 		unsigned	mem_rsc_req = tb->kernel->tb_mem_rsc_req;
 		float	overhead;
+		tb_on_run++;
 
 		assert(tb->work_remained > 0);
 		overhead = get_overhead_sm(rsc_used_saved) + get_overhead_mem(mem_rsc_req);
@@ -173,12 +176,15 @@ void
 run_tbs_on_all_sms(void)
 {
 	struct list_head	*lp;
+	tb_on_run = 0;
 
 	list_for_each (lp, &sms) {
 		sm_t	*sm = list_entry(lp, sm_t, list);
 		run_tbs_on_sm(sm);
 	}
 	rsc_used_all += rsc_used;
+	total_tb_run += tb_on_run;
+	update_mem_usage();
 }
 
 double
@@ -205,4 +211,9 @@ save_conf_sm_overheads(FILE *fp)
 
 		fprintf(fp, "%u %f\n", oh->to_rsc, oh->tb_overhead);
 	}
+}
+void
+report_TB_stat(void)
+{
+	printf("TB: %.1f\n", total_tb_run / simtime);
 }
