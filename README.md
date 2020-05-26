@@ -22,7 +22,6 @@
   - workload 자동 생성 모드의 경우 반드시 최대 수행 시간을 지정해야 함
 - workload section은 워크로드 자동 생성시 필요한 설정 정보
   - level: 워크로드를 발생시키는 최소 SM 사용율(1~100)
-  - max\_starved: TB를 수행시키지 않은 starved 상태의 커널의 최대 개수, max\_starved가 1이하인 경우는 starved kernel이 없는 경우에만 워크로드를 발생시킴
   - n\_tbs\_range: 커널의 TB 개수 범위
   - tb\_duration_range: 단위 TB의 수행 시간 범위
 - sm section은 SM의 개수와 SM에서 지원가능한 최대 Resource 정의

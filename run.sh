@@ -33,7 +33,7 @@ function show_metric() {
 }
 
 
-for conf in conf.*.*.*
+for conf in mkload.conf.*
 do
     echo -n "$conf "
     for p in $policies

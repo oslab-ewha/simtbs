@@ -6,4 +6,3 @@ cscope.out
 *.conf.*
 *.tgz
 *.swp
-/conf.*.?.?

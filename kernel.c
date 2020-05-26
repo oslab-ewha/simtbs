@@ -1,7 +1,6 @@
 #include "simtbs.h"
 #include <math.h>
 
-extern BOOL gen_workload(void);
 extern float get_overhead_mem_SA(unsigned rsc);
 
 static LIST_HEAD(kernels_all);
@@ -72,9 +71,6 @@ insert_kernel(unsigned start_ts, unsigned n_tb, unsigned tb_rsc_req, unsigned tb
 void
 check_new_arrived_kernel(void)
 {
-	if (wl_genmode && (n_kernels_starved == 0 || n_kernels_starved < wl_max_starved)) {
-		gen_workload();
-	}
 	while (!list_empty(&kernels_pending)) {
 		kernel_t	*kernel = list_entry(kernels_pending.next, kernel_t, list_running);
 		if (kernel->ts_start == simtime) {

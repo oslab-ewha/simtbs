@@ -1,6 +1,6 @@
 #!/bin/bash
 
-WORKLOADS="100.3 100.2 080.2 080.1 060.2 060.1 040.2 040.1 020.2 020.1 010.1 008.1 006.1 004.1 002.1"
+WORKLOADS="125 120 115 110 105 100 90 80 70 60 50 40 30 20 10"
 
 SIMTBS=`dirname $0`/simtbs
 
@@ -30,7 +30,7 @@ cat <<EOF > $1
 15000 14
 
 *workload
-$2 $3 12-128 5-20
+$2 12-128 5-20
 
 *overhead_sm
 2 0.1
@@ -44,16 +44,12 @@ $2 $3 12-128 5-20
 EOF
 }
 
-conftmpl=conf.$$
+conftmpl=.simtbs.tmpl.conf.$$
 
 for wl in $WORKLOADS
 do
-    args=`echo $wl | sed 's/\./ /'`
-    gen_conf $conftmpl $args
-    for i in `seq 1 5`
-    do
-	$SIMTBS -g conf.$wl.$i $conftmpl
-    done
+    gen_conf $conftmpl $wl
+    $SIMTBS -g `printf mkload.conf.%03d $wl` $conftmpl
 done
 
 rm -f $conftmpl

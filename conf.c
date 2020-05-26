@@ -125,7 +125,7 @@ parse_workload(FILE *fp)
 		if (wl_parsed) {
 			FATAL(2, "multiple workload lines: %s", trim(buf));
 		}
-		if (sscanf(buf, "%u %u %s %s", &wl_level, &wl_max_starved, rangestr_n_tbs, rangestr_tb_duration) != 4) {
+		if (sscanf(buf, "%u %s %s", &wl_level, rangestr_n_tbs, rangestr_tb_duration) != 3) {
 			FATAL(2, "cannot load configuration: invalid workload format: %s", trim(buf));
 		}
 		if (!parse_range(rangestr_n_tbs, &wl_n_tbs_min, &wl_n_tbs_max)) {

@@ -45,6 +45,9 @@ extern void report_result(void);
 
 extern void update_kernel_infos(void);
 
+extern void gen_workload(void);
+extern void clear_workload(void);
+
 void
 errmsg(const char *fmt, ...)
 {
@@ -143,8 +146,18 @@ runsim(void)
 	}
 
 	report_result();
-	if (wl_genmode)
-		save_conf(conf_path_new);
+}
+
+static void
+genwl(void)
+{
+	while (!is_simtime_over()) {
+		gen_workload();
+		clear_workload();
+		simtime++;
+	}
+
+	save_conf(conf_path_new);
 }
 
 int
@@ -154,7 +167,10 @@ main(int argc, char *argv[])
 
 	srand(getpid() + time(NULL));
 
-	runsim();
+	if (!wl_genmode)
+		runsim();
+	else
+		genwl();
 
 	return 0;
 }

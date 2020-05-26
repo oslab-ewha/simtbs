@@ -1,9 +1,10 @@
 #include "simtbs.h"
 
-static unsigned	rsc_used, rsc_total;
+static unsigned	rsc_used;
 static unsigned	long long rsc_used_all;
 static unsigned tb_on_run;
 double total_tb_run = 0;
+unsigned	rsc_total;
 unsigned	n_sms, sm_rsc_max;
 
 static LIST_HEAD(sms);
@@ -190,7 +191,7 @@ run_tbs_on_all_sms(void)
 double
 get_sm_rsc_usage(void)
 {
-	return (double)rsc_used / rsc_total * 100;
+	return ((double)rsc_used) / rsc_total * 100;
 }
 
 double
