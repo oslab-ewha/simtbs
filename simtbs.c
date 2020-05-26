@@ -124,7 +124,7 @@ parse_args(int argc, char *argv[])
 static BOOL
 is_simtime_over(void)
 {
-	if (max_simtime && max_simtime < simtime)
+	if (max_simtime && max_simtime <= simtime)
 		return TRUE;
 	return FALSE;
 }
