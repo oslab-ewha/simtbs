@@ -10,6 +10,7 @@ typedef struct {
 
 unsigned	wl_level;
 unsigned	wl_n_tbs_min, wl_n_tbs_max, wl_tb_duration_min, wl_tb_duration_max;
+unsigned	wl_n_rsc_reqs_count, wl_n_rsc_reqs[1024];
 
 extern unsigned rsc_total;
 
@@ -57,9 +58,11 @@ void
 gen_workload(void)
 {
 	double	rsc_usage;
-	unsigned	rsc_req_per_tb = get_rand(sm_rsc_max - 1);
+	unsigned	rsc_req_per_tb;
 	unsigned	rsc_req;
 	unsigned	n_tb;
+
+	rsc_req_per_tb = wl_n_rsc_reqs[get_rand(wl_n_rsc_reqs_count) - 1];
 
 	n_tb = get_rand(wl_n_tbs_max - wl_n_tbs_min - 1);
 	rsc_req = rsc_req_per_tb * n_tb;

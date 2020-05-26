@@ -80,6 +80,7 @@ extern BOOL	verbose;
 extern BOOL	wl_genmode;
 extern unsigned wl_level, wl_max_starved;
 extern unsigned	wl_n_tbs_min, wl_n_tbs_max, wl_tb_duration_min, wl_tb_duration_max;
+extern unsigned	wl_n_rsc_reqs_count, wl_n_rsc_reqs[];
 
 void insert_kernel(unsigned start_ts, unsigned n_tb, unsigned tb_req, unsigned tb_mem_req, unsigned tb_len);
 

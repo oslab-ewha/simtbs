@@ -108,6 +108,48 @@ out:
 	return res;
 }
 
+static BOOL
+parse_rsc_req_with_comma(const char *c_rsc_req_str, unsigned *pcount, unsigned *n_reqs)
+{
+	char	*reqstr, *tok;
+	unsigned	count = 0;
+
+	tok = reqstr = strdup(c_rsc_req_str);
+	while ((tok = strtok(tok, ","))) {
+		unsigned	value;
+
+		if (sscanf(tok, "%u", &value) != 1) {
+			free(reqstr);
+			return FALSE;
+		}
+		n_reqs[count++] = value;
+		tok = NULL;
+	}
+	free(reqstr);
+	*pcount = count;
+
+	return TRUE;
+}
+
+static BOOL
+parse_rsc_req_format(const char *c_rsc_req_str, unsigned *pcount, unsigned *n_reqs)
+{
+	unsigned	min, max;
+
+	if (parse_range(c_rsc_req_str, &min, &max)) {
+		if (min <= max) {
+			int	i;
+
+			*pcount = max - min + 1;
+			for (i = 0; i < *pcount; i++)
+				n_reqs[i] = min + i;
+			return TRUE;
+		}
+	}
+
+	return parse_rsc_req_with_comma(c_rsc_req_str, pcount, n_reqs);
+}
+
 static void
 parse_workload(FILE *fp)
 {
@@ -115,7 +157,8 @@ parse_workload(FILE *fp)
 	BOOL	wl_parsed = FALSE;
 
 	while (fgets(buf, 1024, fp)) {
-		char	rangestr_n_tbs[1024], rangestr_tb_duration[1024];
+		char	rsc_req_str[1024], rangestr_n_tbs[1024], rangestr_tb_duration[1024];
+
 		if (buf[0] == '#')
 			continue;
 		if (buf[0] == '\n' || buf[0] == '*') {
@@ -125,9 +168,12 @@ parse_workload(FILE *fp)
 		if (wl_parsed) {
 			FATAL(2, "multiple workload lines: %s", trim(buf));
 		}
-		if (sscanf(buf, "%u %s %s", &wl_level, rangestr_n_tbs, rangestr_tb_duration) != 3) {
+		if (sscanf(buf, "%u %s %s %s", &wl_level, rsc_req_str, rangestr_n_tbs, rangestr_tb_duration) != 4) {
 			FATAL(2, "cannot load configuration: invalid workload format: %s", trim(buf));
 		}
+		if (!parse_rsc_req_format(rsc_req_str, &wl_n_rsc_reqs_count, wl_n_rsc_reqs)) {
+			FATAL(2, "cannot load configuration: invalid resource request range format: %s", trim(buf));
+		}		
 		if (!parse_range(rangestr_n_tbs, &wl_n_tbs_min, &wl_n_tbs_max)) {
 			FATAL(2, "cannot load configuration: invalid # of tbs format: %s", trim(buf));
 		}
