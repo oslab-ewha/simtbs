@@ -24,7 +24,11 @@ SIMTBS=`dirname $0`/simtbs
 
 function show_metric() {
     str=`$SIMTBS -p $1 $2 | grep "^$3:" | grep -Ewo '[[:digit:]]*\.[[:digit:]]*'`
-    value=`echo "scale=4;$str / 100" | bc`
+    if [[ $pattern = "ANTT" ]]; then
+	value=`echo "scale=4;$str" | bc`
+    else
+	value=`echo "scale=4;$str / 100" | bc`
+    fi
     echo -n $value
 }
 

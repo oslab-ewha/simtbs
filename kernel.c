@@ -191,7 +191,7 @@ show_kernel_stat(kernel_t *kernel, double *pantt)
 	if (kernel->ts_end > 0) {
 		unsigned	runtime = (kernel->ts_end - kernel->ts_start + 1);
 		unsigned	runtime_SA = get_runtime_SA(kernel);
-		double		antt = 1.0 * runtime_SA / runtime;
+		double		antt = 1.0 * runtime / runtime_SA;
 
 		if (verbose)
 			printf("kernel[%02d]: %.1f\n", kernel->no, 100 * antt);
@@ -221,7 +221,7 @@ report_kernel_stat(void)
 	}
 
 	if (n_kernels_stat > 0) {
-		printf("ANTT: %.1lf%%\n", 100 * antt_sum / n_kernels_stat);
+		printf("ANTT: %.3lf\n", antt_sum / n_kernels_stat);
 		printf("Kernel: %d\n", n_kernels_stat);
 	}
 }
