@@ -34,7 +34,7 @@ do
     echo -n "$conf "
     for p in $policies
     do
-	show_metric $p $conf $pattern
+	show_metric $p $conf "$pattern"
 	echo -n ' '
     done
     echo
