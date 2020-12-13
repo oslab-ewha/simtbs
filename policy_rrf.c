@@ -1,5 +1,10 @@
 #include "simtbs.h"
 
+/*
+ * rrf(Round Robin Fully)
+ * same as rr but move to the next SM only if crrent SM is fully used
+ */
+
 static sm_t	*sm_last;
 
 static sm_t *

@@ -1,5 +1,10 @@
 #include "simtbs.h"
 
+/*
+ * rr(Round Robin)
+ * assign TB to SM in round robin fashion
+ */
+
 static sm_t	*sm_last;
 
 static sm_t *

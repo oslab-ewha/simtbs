@@ -1,5 +1,9 @@
 #include "simtbs.h"
 
+/*
+ * dfa(Depth First Allocation)
+ * schedule TB to be converged to the most used SM
+ */
 static sm_t *
 get_sm_by_dfa(unsigned rsc_req)
 {

@@ -1,5 +1,9 @@
 #include "simtbs.h"
 
+/*
+ * bfa(Breadth First Allocation)
+ * schedule TB to be spreaded to SM
+ */
 static sm_t *
 get_sm_by_bfa(unsigned rsc_req)
 {
