@@ -32,7 +32,7 @@
   - Currently, only a maximum simulation time is supported.
   - a maximum simulation time should be provided in auto workload generation mode.
 - workload section: settings for automatic workload generation mode
-  - format: `level rsc_req n_tbs_range the_duration_range`
+  - format: `level rsc_req n_tbs_range tb_duration_range`
   - `level`: minimum SM usage generating workload (1~100)
   - `rsc_req`: computing resource amount per each scheduled TB count  
     range(1-8) or multiple(1,3,8) format possible
