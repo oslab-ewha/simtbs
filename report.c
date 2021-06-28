@@ -5,18 +5,16 @@ extern double get_sm_rsc_usage_all(void);
 extern void report_mem_stat(void);
 extern void report_TB_stat(void);
 
-extern policy_t	*policy;
+extern policy_t *policy;
 
-void
-report_sim(void)
+void report_sim(void)
 {
 	printf("[%6u] %.1lf\n", simtime, get_sm_rsc_usage());
 }
 
-void
-report_result(void)
+void report_result(void)
 {
-	double	usage_sm;
+	double usage_sm;
 
 	usage_sm = get_sm_rsc_usage_all();
 
@@ -29,5 +27,4 @@ report_result(void)
 
 	report_mem_stat();
 	report_TB_stat();
-	
 }

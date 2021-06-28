@@ -6,33 +6,31 @@ static void
 usage(void)
 {
 	fprintf(stdout,
-"Usage: simtbs <options> <config path>\n"
-" <options>\n"
-"      -h: this message\n"
-"      -v: verbose mode\n"
-"      -p <tbs policy>: rr(default), rrf, bfa, dfa\n"
-"      -g <new conf path>: generate workload\n"
-	);
+			"Usage: simtbs <options> <config path>\n"
+			" <options>\n"
+			"      -h: this message\n"
+			"      -v: verbose mode\n"
+			"      -p <tbs policy>: rr(default), rrf, bfa, dfa\n"
+			"      -g <new conf path>: generate workload\n");
 }
 
-#define N_POLICIES	(sizeof(all_policies) / sizeof(policy_t *))
+#define N_POLICIES (sizeof(all_policies) / sizeof(policy_t *))
 
-unsigned	simtime, max_simtime;
-policy_t	*policy = NULL;
-BOOL	wl_genmode;
+unsigned simtime, max_simtime;
+policy_t *policy = NULL;
+BOOL wl_genmode;
 
-BOOL	verbose;
+BOOL verbose;
 
-static char	*conf_path_new;
+static char *conf_path_new;
 
-extern policy_t	policy_rr;
-extern policy_t	policy_rrf;
-extern policy_t	policy_bfa;
-extern policy_t	policy_dfa;
+extern policy_t policy_rr;
+extern policy_t policy_rrf;
+extern policy_t policy_bfa;
+extern policy_t policy_dfa;
 
-static policy_t	*all_policies[] = {
-	&policy_rr, &policy_rrf, &policy_bfa, &policy_dfa
-};
+static policy_t *all_policies[] = {
+	&policy_rr, &policy_rrf, &policy_bfa, &policy_dfa};
 
 extern BOOL is_kernel_all_done(void);
 extern void run_tbs_on_all_sms(void);
@@ -48,11 +46,10 @@ extern void update_kernel_infos(void);
 extern void gen_workload(void);
 extern void clear_workload(void);
 
-void
-errmsg(const char *fmt, ...)
+void errmsg(const char *fmt, ...)
 {
-	va_list	ap;
-	char	*errmsg;
+	va_list ap;
+	char *errmsg;
 
 	va_start(ap, fmt);
 	vasprintf(&errmsg, fmt, ap);
@@ -65,10 +62,12 @@ errmsg(const char *fmt, ...)
 static void
 setup_policy(const char *strpol)
 {
-	unsigned	i;
+	unsigned i;
 
-	for (i = 0; i < N_POLICIES; i++) {
-		if (strcmp(strpol, all_policies[i]->name) == 0) {
+	for (i = 0; i < N_POLICIES; i++)
+	{
+		if (strcmp(strpol, all_policies[i]->name) == 0)
+		{
 			policy = all_policies[i];
 			return;
 		}
@@ -80,10 +79,12 @@ setup_policy(const char *strpol)
 static void
 parse_args(int argc, char *argv[])
 {
-	int	c;
+	int c;
 
-	while ((c = getopt(argc, argv, "p:vg:h")) != -1) {
-		switch (c) {
+	while ((c = getopt(argc, argv, "p:vg:h")) != -1)
+	{
+		switch (c)
+		{
 		case 'p':
 			setup_policy(optarg);
 			break;
@@ -104,7 +105,8 @@ parse_args(int argc, char *argv[])
 		}
 	}
 
-	if (argc - optind < 1) {
+	if (argc - optind < 1)
+	{
 		usage();
 		exit(1);
 	}
@@ -112,13 +114,16 @@ parse_args(int argc, char *argv[])
 	load_conf(argv[optind]);
 	if (policy == NULL)
 		policy = &policy_rr;
-	if (wl_genmode) {
+	if (wl_genmode)
+	{
 		if (max_simtime == 0)
 			FATAL(3, "workload generation mode requires maximum simtime");
-		if (wl_n_tbs_min >= wl_n_tbs_max) {
+		if (wl_n_tbs_min >= wl_n_tbs_max)
+		{
 			FATAL(3, "Invalid range for number of TB's");
 		}
-		if (wl_tb_duration_min >= wl_n_tbs_max) {
+		if (wl_tb_duration_min >= wl_n_tbs_max)
+		{
 			FATAL(3, "Invalid range for TB duration");
 		}
 	}
@@ -135,7 +140,8 @@ is_simtime_over(void)
 static void
 runsim(void)
 {
-	while (!is_kernel_all_done() && !is_simtime_over()) {
+	while (!is_kernel_all_done() && !is_simtime_over())
+	{
 		check_new_arrived_kernel();
 		if (get_unscheduled_tb() && is_sm_resource_available(NULL, 1))
 			policy->schedule();
@@ -151,7 +157,8 @@ runsim(void)
 static void
 genwl(void)
 {
-	while (!is_simtime_over()) {
+	while (!is_simtime_over())
+	{
 		gen_workload();
 		clear_workload();
 		simtime++;
@@ -160,8 +167,7 @@ genwl(void)
 	save_conf(conf_path_new);
 }
 
-int
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	parse_args(argc, argv);
 

@@ -11,18 +11,25 @@
  * using the generic single-entry routines.
  */
 
-struct list_head {
-	struct list_head	*next, *prev;
+struct list_head
+{
+	struct list_head *next, *prev;
 };
 
-#define LIST_HEAD_INIT(name) { &(name), &(name) }
+#define LIST_HEAD_INIT(name) \
+	{                        \
+		&(name), &(name)     \
+	}
 
 #define LIST_HEAD(name) \
 	struct list_head name = LIST_HEAD_INIT(name)
 
-#define INIT_LIST_HEAD(ptr) do { \
-	(ptr)->next = (ptr); (ptr)->prev = (ptr); \
-} while (0)
+#define INIT_LIST_HEAD(ptr)  \
+	do                       \
+	{                        \
+		(ptr)->next = (ptr); \
+		(ptr)->prev = (ptr); \
+	} while (0)
 
 /*
  * Insert a new entry between two known consecutive entries. 
@@ -32,8 +39,8 @@ struct list_head {
  */
 static inline void
 __list_add(struct list_head *lnew,
-	   struct list_head *prev,
-	   struct list_head *next)
+		   struct list_head *prev,
+		   struct list_head *next)
 {
 	next->prev = lnew;
 	lnew->next = next;
@@ -76,9 +83,8 @@ list_add_tail(struct list_head *lnew, struct list_head *head)
  * This is only for internal list manipulation where we know
  * the prev/next entries already!
  */
-static
-void __list_del(struct list_head *prev,
-		struct list_head *next)
+static void __list_del(struct list_head *prev,
+					   struct list_head *next)
 {
 	next->prev = prev;
 	prev->next = next;
@@ -126,7 +132,8 @@ list_splice(struct list_head *list, struct list_head *head)
 {
 	struct list_head *first = list->next;
 
-	if (first != list) {
+	if (first != list)
+	{
 		struct list_head *last = list->prev;
 		struct list_head *at = head->next;
 
@@ -145,7 +152,7 @@ list_splice(struct list_head *list, struct list_head *head)
  * @member:	the name of the list_struct within the struct.
  */
 #define list_entry(ptr, type, member) \
-	((type *)((char *)(ptr)-(unsigned long)((char *)&((type *)0)->member - (char *)0)))
+	((type *)((char *)(ptr) - (unsigned long)((char *)&((type *)0)->member - (char *)0)))
 
 /**
  * list_for_each	-	iterate over a list
@@ -166,5 +173,5 @@ list_splice(struct list_head *list, struct list_head *head)
 
 #define list_for_each_tail_n(pos, head, prev) \
 	for (pos = (head)->prev, prev = pos->prev; pos != (head); pos = prev, prev = pos->prev)
-        	
+
 #endif
