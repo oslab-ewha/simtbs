@@ -138,7 +138,7 @@ preprocess_tb(void)
 			{
 				unsigned bucket_index = logB(unscheduled_tb->work_remained, 2);
 				tb_bucket = &tb_bucket_list[bucket_index];
-				while (!(tb_bucket->next == NULL))
+				while (!(tb_bucket->tb == NULL))
 				{
 					tb_bucket = tb_bucket->next;
 				}
@@ -146,7 +146,7 @@ preprocess_tb(void)
 				tb_t_list *tb_add = (tb_t_list *)malloc(sizeof(tb_t_list));
 				tb_add->tb = unscheduled_tb;
 				tb_add->next = NULL;
-				tb_bucket->next = tb_add;
+				tb_bucket = tb_add;
 			}
 		}
 	}
