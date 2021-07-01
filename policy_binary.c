@@ -33,6 +33,12 @@ schedule_binary(void)
         }
 
         unsigned bucket_index = logB(get_sm_rsc_max() - sm->rsc_used, 2);
+        unsigned max_bucket_index = logB(get_sm_rsc_max() + 1, 2);
+        if (bucket_index >= max_bucket_index)
+        {
+            continue;
+        }
+
         for (i = bucket_index; i >= 0; i--)
         {
             if (!(tb_bucket + bucket_index)->tb)

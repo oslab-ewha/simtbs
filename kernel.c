@@ -11,6 +11,7 @@ static int n_kernels;
 /* # of kernel which has no done TB */
 static int n_kernels_starved;
 static int n_kernels_done;
+static tb_t_list tb_bucket_list[128];
 
 static tb_t *
 create_tb(kernel_t *kernel)
@@ -116,38 +117,41 @@ get_unscheduled_kernel_tb(kernel_t *kernel)
 tb_t_list *
 preprocess_tb(void)
 {
-    unsigned i;
-    struct list_head *kp;
-    unsigned sm_rsc_max = get_sm_rsc_max() + 1;
-    tb_t_list *tb_bucket_list = (tb_t_list *)malloc(sizeof(tb_t_list) * (sm_rsc_max + 1));
-    for (i = 0; i < sm_rsc_max; i++)
-    {
-        (tb_bucket_list + i)->tb = NULL;
-    }
+	unsigned i;
+	struct list_head *kp;
+	for (i = 0; i < 128; i++)
+	{
+		tb_bucket_list[i] = *(tb_t_list *)calloc(1, sizeof(tb_t_list));
+		tb_bucket_list[i].next = NULL;
+	}
 
-    list_for_each(kp, &kernels_running)
-    {
-        kernel_t *kernel = list_entry(kp, kernel_t, list_running);
+	list_for_each(kp, &kernels_running)
+	{
+		kernel_t *kernel = list_entry(kp, kernel_t, list_running);
 
-        struct list_head *lp;
-        list_for_each(lp, &kernel->tbs)
-        {
-            tb_t *unscheduled_tb = list_entry(lp, tb_t, list_kernel);
-            if (unscheduled_tb->sm == NULL)
-            {
-                unsigned bucket_index = logB(unscheduled_tb->work_remained, 2);
+		struct list_head *lp;
+		tb_t_list *tb_bucket;
+		list_for_each(lp, &kernel->tbs)
+		{
+			tb_t *unscheduled_tb = list_entry(lp, tb_t, list_kernel);
+			if (unscheduled_tb->sm == NULL)
+			{
+				unsigned bucket_index = logB(unscheduled_tb->work_remained, 2);
+				tb_bucket = &tb_bucket_list[bucket_index];
+				while (!(tb_bucket->next == NULL))
+				{
+					tb_bucket = tb_bucket->next;
+				}
 
-                tb_t_list *tb_bucket = &tb_bucket_list[bucket_index];
-                while (!tb_bucket->tb)
-                {
-                    tb_bucket = tb_bucket->next;
-                }
-                tb_bucket->tb = unscheduled_tb;
-            }
-        }
-    }
+				tb_t_list *tb_add = (tb_t_list *)malloc(sizeof(tb_t_list));
+				tb_add->tb = unscheduled_tb;
+				tb_add->next = NULL;
+				tb_bucket->next = tb_add;
+			}
+		}
+	}
 
-    return tb_bucket_list;
+	return tb_bucket_list;
 }
 
 tb_t *

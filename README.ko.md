@@ -21,11 +21,13 @@
 - general section은 일반적 설정 정보. 현재는 최대 시뮬레이션 수행 시간만 설정 가능
   - workload 자동 생성 모드의 경우 반드시 최대 수행 시간을 지정해야 함
 - workload section은 워크로드 자동 생성시 필요한 설정 정보
-  - level: 워크로드를 발생시키는 최소 SM 사용율(1~100)
-  - rsc\_req: tb당 컴퓨팅 resource 수, 1-8 혹은 1,3,8 형태 가능
-  - n\_tbs\_range: 커널의 TB 개수 범위
-  - tb\_duration_range: 단위 TB의 수행 시간 범위
+  - `level`: 워크로드를 발생시키는 최소 SM 사용율(1~100)
+  - `rsc_req`: tb당 컴퓨팅 resource 수, 1-8 혹은 1,3,8 형태 가능
+  - `n_tbs_range`: 커널의 TB 개수 범위
+  - `tb_duration_range`: 단위 TB의 수행 시간 범위
 - sm section은 SM의 개수와 SM에서 지원가능한 최대 Resource 정의
+  - `sm_count`:  GPGPU 장치의 총 SM 수
+  - `sm_rsc_max`: SM 당 최대 컴퓨팅 리소스 수
 - overhead section은 sm에서 사용중인 resource에 따라 TB의 추가 수행 시간정의
   - 1이하로는 정의할 수 없음, 1의 경우는 overhead가 없음
   - 3 0.1로 정의된 경우는 SM에 2나 3의 resource가 사용중인 경우 10% 추가 overhead가 소요

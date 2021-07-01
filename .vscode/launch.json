@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/simtbs",
-            "args": ["-p", "bfa", "${workspaceFolder}/sample.conf"],
+            "args": ["-p", "binary", "${workspaceFolder}/sample.conf"],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "environment": [],
