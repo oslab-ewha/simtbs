@@ -41,7 +41,7 @@ schedule_binary(void)
 
         for (i = bucket_index; i >= 0; i--)
         {
-            if (!(tb_bucket + bucket_index)->tb)
+            if (!(tb_bucket + bucket_index)->tb && (tb_bucket + bucket_index)->tb->work_remained <= 128 - sm->rsc_used)
             {
                 alloc_tb_on_sm(sm, (tb_bucket + bucket_index)->tb);
                 *(tb_bucket + bucket_index) = *(tb_bucket + bucket_index)->next;
