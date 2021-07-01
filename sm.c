@@ -16,6 +16,10 @@ extern void assign_mem(unsigned mem_rsc_req);
 extern void revoke_mem(unsigned mem_rsc_req);
 extern float get_overhead_mem(unsigned mem_rsc_req);
 
+unsigned get_sm_rsc_max(void){
+	return sm_rsc_max;
+}
+
 static sm_t *
 create_sm(void)
 {

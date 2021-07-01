@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "bitset": "c",
+        "functional": "c",
+        "iterator": "c",
+        "list": "c",
+        "memory": "c"
+    }
+}

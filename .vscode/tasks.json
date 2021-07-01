@@ -4,7 +4,7 @@
 		{
 			"type": "shell",
 			"label": "Build Simtbs",
-			"command": "/usr/bin/make",
+			"command": "/usr/bin/make clean && /usr/bin/make",
       		"problemMatcher": ["$gcc"],
       		"group": {
         		"kind": "build",

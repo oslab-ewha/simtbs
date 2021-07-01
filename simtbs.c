@@ -28,9 +28,10 @@ extern policy_t policy_rr;
 extern policy_t policy_rrf;
 extern policy_t policy_bfa;
 extern policy_t policy_dfa;
+extern policy_t policy_binary;
 
 static policy_t *all_policies[] = {
-	&policy_rr, &policy_rrf, &policy_bfa, &policy_dfa};
+	&policy_rr, &policy_rrf, &policy_bfa, &policy_dfa, &policy_binary};
 
 extern BOOL is_kernel_all_done(void);
 extern void run_tbs_on_all_sms(void);
