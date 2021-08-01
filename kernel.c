@@ -35,15 +35,15 @@ setup_tbs(kernel_t *kernel)
 }
 
 static kernel_t *
-create_kernel(unsigned ts_start, unsigned n_tb, unsigned tb_rsc_req, unsigned tb_mem_rsc_req, unsigned tb_duration)
+create_kernel(unsigned ts_start, unsigned n_tb, unsigned tb_rsc_req_cpu, unsigned tb_rsc_req_mem, unsigned tb_duration)
 {
 	kernel_t	*kernel;
 
 	kernel = (kernel_t *)calloc(1, sizeof(kernel_t));
 	kernel->ts_start = ts_start;
 	kernel->n_tb = n_tb;
-	kernel->tb_rsc_req = tb_rsc_req;
-	kernel->tb_mem_rsc_req = tb_mem_rsc_req;
+	kernel->tb_rsc_req_cpu = tb_rsc_req_cpu;
+	kernel->tb_rsc_req_mem = tb_rsc_req_mem;
 	kernel->tb_duration = tb_duration;
 	kernel->starved = TRUE;
 	INIT_LIST_HEAD(&kernel->tbs);
@@ -60,10 +60,10 @@ create_kernel(unsigned ts_start, unsigned n_tb, unsigned tb_rsc_req, unsigned tb
 }
 
 void
-insert_kernel(unsigned start_ts, unsigned n_tb, unsigned tb_rsc_req, unsigned tb_mem_rsc_req, unsigned tb_duration)
+insert_kernel(unsigned start_ts, unsigned n_tb, unsigned tb_rsc_req_cpu, unsigned tb_rsc_req_mem, unsigned tb_duration)
 {
 	kernel_t	*kernel;
-	kernel = create_kernel(start_ts, n_tb, tb_rsc_req, tb_mem_rsc_req, tb_duration);
+	kernel = create_kernel(start_ts, n_tb, tb_rsc_req_cpu, tb_rsc_req_mem, tb_duration);
 	list_add_tail(&kernel->list_all, &kernels_all);
 	list_add_tail(&kernel->list_running, &kernels_pending);
 }
@@ -129,7 +129,7 @@ get_unscheduled_tb(void)
 unsigned
 get_tb_rsc_req(tb_t *tb)
 {
-	return tb->kernel->tb_rsc_req;
+	return tb->kernel->tb_rsc_req_cpu;
 }
 
 void
@@ -156,8 +156,8 @@ get_runtime_SA(kernel_t *kernel)
 	double		runtime = 0;
 
 	while (n_tbs_kernel > 0) {
-		unsigned	n_tbs_per_sm = sm_rsc_max / kernel->tb_rsc_req;
-		unsigned	rsc_per_sm = n_tbs_per_sm * kernel->tb_rsc_req;
+		unsigned	n_tbs_per_sm = sm_rsc_max / kernel->tb_rsc_req_cpu;
+		unsigned	rsc_per_sm = n_tbs_per_sm * kernel->tb_rsc_req_cpu;
 		unsigned	n_tbs_max = n_tbs_per_sm * n_sms;
 		unsigned	n_tbs, sm_rsc, mem_rsc;
 		float		overhead;
@@ -168,9 +168,9 @@ get_runtime_SA(kernel_t *kernel)
 		}
 		else {
 			n_tbs = n_tbs_kernel;
-			sm_rsc = ((unsigned)floor(n_tbs_kernel / n_sms)) * kernel->tb_rsc_req;
+			sm_rsc = ((unsigned)floor(n_tbs_kernel / n_sms)) * kernel->tb_rsc_req_cpu;
 		}
-		mem_rsc = n_tbs * kernel->tb_mem_rsc_req;
+		mem_rsc = n_tbs * kernel->tb_rsc_req_mem;
 
 		overhead = get_overhead_sm(sm_rsc) + get_overhead_mem_SA(mem_rsc) / n_tbs;
 		runtime += kernel->tb_duration * (1 + overhead);
@@ -231,6 +231,6 @@ save_conf_kernel_infos(FILE *fp)
 
 	list_for_each (lp, &kernels_all) {
 		kernel_t	*kernel = list_entry(lp, kernel_t, list_all);
-		fprintf(fp, "%u %u %u %u %u\n", kernel->ts_start, kernel->n_tb, kernel->tb_rsc_req,  kernel->tb_mem_rsc_req, kernel->tb_duration);
+		fprintf(fp, "%u %u %u %u %u\n", kernel->ts_start, kernel->n_tb, kernel->tb_rsc_req_cpu,  kernel->tb_rsc_req_mem, kernel->tb_duration);
 	}
 }

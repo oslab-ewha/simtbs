@@ -33,9 +33,9 @@ typedef struct {
 	BOOL		starved;
 	unsigned	n_tb;
 	unsigned	n_tb_done;
-  	unsigned	tb_rsc_req;
+  	unsigned	tb_rsc_req_cpu;
+  	unsigned        tb_rsc_req_mem;
   	unsigned	tb_duration;
-  	unsigned        tb_mem_rsc_req;
 
 	struct list_head	tbs;
 	struct list_head	list_running;
@@ -43,8 +43,6 @@ typedef struct {
 } kernel_t;
 
 typedef struct {
-	unsigned	cpursc_used;
-	unsigned        memrsc_used;
 	unsigned        rsc_used;
 	struct list_head	tbs;
 	struct list_head	list;

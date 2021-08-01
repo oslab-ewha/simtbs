@@ -127,18 +127,18 @@ get_next_sm(sm_t *sm)
 BOOL
 alloc_tb_on_sm(sm_t *sm, tb_t *tb)
 {
-	unsigned	rsc_req = tb->kernel->tb_rsc_req;
+	unsigned	rsc_req = tb->kernel->tb_rsc_req_cpu;
 
 	if (sm->rsc_used + rsc_req > sm_rsc_max)
 		return FALSE;
 
 	list_add_tail(&tb->list_sm, &sm->tbs);
-	sm->rsc_used += tb->kernel->tb_rsc_req;
-	rsc_used += tb->kernel->tb_rsc_req;
+	sm->rsc_used += tb->kernel->tb_rsc_req_cpu;
+	rsc_used += tb->kernel->tb_rsc_req_cpu;
 
 	tb->sm = sm;
 
-	assign_mem(tb->kernel->tb_mem_rsc_req);
+	assign_mem(tb->kernel->tb_rsc_req_mem);
 
 	return TRUE;
 }
@@ -151,7 +151,7 @@ run_tbs_on_sm(sm_t *sm)
 
 	list_for_each_n (lp, &sm->tbs, next) {
 		tb_t	*tb = list_entry(lp, tb_t, list_sm);
-		unsigned	mem_rsc_req = tb->kernel->tb_mem_rsc_req;
+		unsigned	mem_rsc_req = tb->kernel->tb_rsc_req_mem;
 		float	overhead;
 		tb_on_run++;
 
@@ -159,10 +159,10 @@ run_tbs_on_sm(sm_t *sm)
 		overhead = get_overhead_sm(rsc_used_saved) + get_overhead_mem(mem_rsc_req);
 		tb->work_remained -= (1 / (1 + overhead));
 		if (tb->work_remained <= 0) {
-			assert(sm->rsc_used >= tb->kernel->tb_rsc_req);
-			sm->rsc_used -= tb->kernel->tb_rsc_req;
-			assert(rsc_used >= tb->kernel->tb_rsc_req);
-			rsc_used -= tb->kernel->tb_rsc_req;
+			assert(sm->rsc_used >= tb->kernel->tb_rsc_req_cpu);
+			sm->rsc_used -= tb->kernel->tb_rsc_req_cpu;
+			assert(rsc_used >= tb->kernel->tb_rsc_req_cpu);
+			rsc_used -= tb->kernel->tb_rsc_req_cpu;
 
 			revoke_mem(mem_rsc_req);
 
