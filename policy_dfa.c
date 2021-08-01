@@ -5,15 +5,22 @@
  * schedule TB to be converged to the most used SM
  */
 static sm_t *
-get_sm_by_dfa(unsigned rsc_req)
+get_sm_by_dfa(unsigned *req_rscs)
 {
 	sm_t	*sm, *sm_max = NULL;
+	float	usage_max = 0;
 
 	for (sm = get_first_sm(); sm != NULL; sm = get_next_sm(sm)) {
-		if (!is_sm_resource_available(sm, rsc_req))
+		float	usage;
+
+		if (!is_sm_resource_available(sm, req_rscs))
 			continue;
-		if (sm_max == NULL || sm_max->rsc_used < sm->rsc_used)
+
+		usage = sm_get_max_rsc_usage(sm, req_rscs);
+		if (sm_max == NULL || usage > usage_max) {
 			sm_max = sm;
+			usage_max = usage;
+		}
 	}
 	return sm_max;
 }
@@ -24,11 +31,11 @@ schedule_dfa(void)
 	tb_t	*tb;
 
 	while ((tb = get_unscheduled_tb())) {
-		unsigned	req_rsc;
+		unsigned	*req_rscs;
 		sm_t	*sm;
 
-		req_rsc = get_tb_rsc_req(tb);
-		sm = get_sm_by_dfa(req_rsc);
+		req_rscs = get_tb_rscs_req_sm(tb);
+		sm = get_sm_by_dfa(req_rscs);
 
 		if (sm == NULL)
 			return;

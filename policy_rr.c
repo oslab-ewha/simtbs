@@ -8,7 +8,7 @@
 static sm_t	*sm_last;
 
 static sm_t *
-get_sm_by_rr(unsigned rsc_req)
+get_sm_by_rr(unsigned *req_rscs)
 {
 	unsigned n_sm_tried = 0;
 
@@ -16,7 +16,7 @@ get_sm_by_rr(unsigned rsc_req)
 		sm_t	*sm;
 
 		sm = sm_last ? get_next_sm(sm_last): get_first_sm(); 
-		if (is_sm_resource_available(sm, rsc_req)) {
+		if (is_sm_resource_available(sm, req_rscs)) {
 			sm_last = sm;
 			return sm;
 		}
@@ -31,11 +31,11 @@ schedule_rr(void)
 	tb_t	*tb;
 
 	while ((tb = get_unscheduled_tb())) {
-		unsigned	req_rsc;
+		unsigned	*req_rscs;
 		sm_t	*sm;
 
-		req_rsc = get_tb_rsc_req(tb);
-		sm = get_sm_by_rr(req_rsc);
+		req_rscs = get_tb_rscs_req_sm(tb);
+		sm = get_sm_by_rr(req_rscs);
 
 		if (sm == NULL)
 			return;

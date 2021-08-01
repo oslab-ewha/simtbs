@@ -4,18 +4,19 @@ static LIST_HEAD(kernels_wl);
 
 typedef struct {
 	unsigned	ts_end;
-	unsigned	rsc_req;
+	unsigned	rscs_req_sm[N_MAX_RSCS_SM];
 	struct list_head	list;
 } kernel_wl_t;
 
 unsigned	wl_level;
 unsigned	wl_n_tbs_min, wl_n_tbs_max, wl_tb_duration_min, wl_tb_duration_max;
-unsigned	wl_n_rsc_reqs_count, wl_n_rsc_reqs[1024];
+unsigned	wl_n_rscs_reqs_count[N_MAX_RSCS_SM], wl_n_rscs_reqs[N_MAX_RSCS_SM][1024];
+unsigned	wl_n_rscs_mem_min[N_MAX_RSCS_MEM], wl_n_rscs_mem_max[N_MAX_RSCS_MEM];
 
-extern unsigned rsc_total;
+extern unsigned	rscs_total_sm[N_MAX_RSCS_SM];
 
 static unsigned	n_kernels;
-static unsigned	rsc_used;
+static unsigned	wl_rscs_used_sm[N_MAX_RSCS_SM];
 
 static unsigned
 get_rand(unsigned max)
@@ -40,40 +41,57 @@ insert_kernel_wl(kernel_wl_t *kernel_new)
 }
 
 static void
-add_kernel(unsigned ts_end, unsigned rsc_req)
+add_kernel(unsigned ts_end, unsigned *rscs_req_sm)
 {
 	kernel_wl_t	*kernel;
+	unsigned	i;
 
 	kernel = (kernel_wl_t *)malloc(sizeof(kernel_wl_t));
 	kernel->ts_end = ts_end;
-	kernel->rsc_req = rsc_req;
+
+	for (i = 0; i < n_rscs_sm; i++)
+		kernel->rscs_req_sm[i] = rscs_req_sm[i];
 
 	insert_kernel_wl(kernel);
 
-	rsc_used += rsc_req;
+	for (i = 0; i < n_rscs_sm; i++)
+		wl_rscs_used_sm[i] += rscs_req_sm[i];
 	n_kernels++;
 }
 
 void
 gen_workload(void)
 {
-	double	rsc_usage;
-	unsigned	rsc_req_per_tb;
-	unsigned	rsc_req;
+	double	rsc_usage_avg, rsc_usage_sum;
+	double	rscs_usage[N_MAX_RSCS_SM];
+	unsigned	rscs_req_per_tb_sm[N_MAX_RSCS_SM];
+	unsigned	rscs_req_per_tb_mem[N_MAX_RSCS_MEM];
+	unsigned	rscs_req_sm[N_MAX_RSCS_SM];
 	unsigned	n_tb;
-
-	rsc_req_per_tb = wl_n_rsc_reqs[get_rand(wl_n_rsc_reqs_count) - 1];
+	unsigned	i;
 
 	n_tb = get_rand(wl_n_tbs_max - wl_n_tbs_min - 1);
-	rsc_req = rsc_req_per_tb * n_tb;
-	rsc_usage = ((double)rsc_used + rsc_req) / rsc_total * 100;
 
-	if (rsc_usage <= wl_level) {
+	for (i = 0; i < n_rscs_sm; i++) {
+		rscs_req_per_tb_sm[i] = wl_n_rscs_reqs[i][get_rand(wl_n_rscs_reqs_count[i]) - 1];
+
+		rscs_req_sm[i] = rscs_req_per_tb_sm[i] * n_tb;
+		rscs_usage[i] = ((double)wl_rscs_used_sm[i] + rscs_req_sm[i]) / rscs_total_sm[i] * 100;
+	}
+
+	for (i = 0; i < n_rscs_mem; i++)
+		rscs_req_per_tb_mem[i] = get_rand(wl_n_rscs_mem_max[i] - wl_n_rscs_mem_min[i]) + wl_n_rscs_mem_min[i];
+
+	rsc_usage_sum = 0;
+	for (i = 0; i < n_rscs_sched; i++)
+		rsc_usage_sum += rscs_usage[i];
+	rsc_usage_avg = rsc_usage_sum / n_rscs_sched;
+
+	if (rsc_usage_avg <= wl_level) {
 		unsigned	duration = get_rand(wl_tb_duration_max - wl_tb_duration_min - 1);
-		unsigned	mem_rsc_req = get_rand(100);
 
-		add_kernel(simtime + duration, rsc_req);
-		insert_kernel(simtime + 1, n_tb, rsc_req_per_tb, mem_rsc_req, duration);
+		add_kernel(simtime + duration, rscs_req_sm);
+		insert_kernel(simtime + 1, n_tb, rscs_req_per_tb_sm, rscs_req_per_tb_mem, duration);
 	}
 }
 
@@ -86,9 +104,13 @@ clear_workload(void)
 		kernel_wl_t	*kernel = list_entry(lp, kernel_wl_t, list);
 
 		if (kernel->ts_end == simtime) {
+			unsigned	i;
+
 			list_del_init(&kernel->list);
-			assert(rsc_used >= kernel->rsc_req);
-			rsc_used -= kernel->rsc_req;
+			for (i = 0; i < n_rscs_sm; i++) {
+				assert(wl_rscs_used_sm[i] >= kernel->rscs_req_sm[i]);
+				wl_rscs_used_sm[i] -= kernel->rscs_req_sm[i];
+			}
 
 			assert(n_kernels > 0);
 			n_kernels--;

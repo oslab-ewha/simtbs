@@ -1,20 +1,19 @@
 #include "simtbs.h"
 
-static unsigned	rsc_used;
-static unsigned	long long rsc_used_all;
+static unsigned	rscs_used_sm[N_MAX_RSCS_SM];
+static unsigned	long long	rscs_used_all_sm[N_MAX_RSCS_SM];
 static unsigned tb_on_run;
 double total_tb_run = 0;
-unsigned	rsc_total;
-unsigned	n_sms, sm_rsc_max;
+unsigned	rscs_total_sm[N_MAX_RSCS_SM];
+unsigned	n_sms, n_rscs_sm, n_rscs_sched, rscs_max_sm[N_MAX_RSCS_SM];
 
 static LIST_HEAD(sms);
-static LIST_HEAD(sm_overhead);
+static LIST_HEAD(overhead_sm);
 
 extern void update_mem_usage(void);
 extern void complete_tb(tb_t *tb);
-extern void assign_mem(unsigned mem_rsc_req);
-extern void revoke_mem(unsigned mem_rsc_req);
-extern float get_overhead_mem(unsigned mem_rsc_req);
+extern void assign_mem(unsigned *rscs_req_mem);
+extern void revoke_mem(unsigned *rscs_req_mem);
 
 static sm_t *
 create_sm(void)
@@ -28,84 +27,147 @@ create_sm(void)
 }
 
 void
-setup_sms(unsigned conf_n_sms, unsigned conf_sm_rsc_max)
+setup_sms(unsigned conf_n_sms, unsigned conf_n_rscs_sm, unsigned conf_n_rscs_sched, unsigned *conf_rscs_max_sm)
 {
 	unsigned	i;
 
 	n_sms = conf_n_sms;
-	sm_rsc_max = conf_sm_rsc_max;
+
+	n_rscs_sm = conf_n_rscs_sm;
+	n_rscs_sched = conf_n_rscs_sched;
+
+	for (i = 0; i < n_rscs_sm; i++)
+		rscs_max_sm[i] = conf_rscs_max_sm[i];
 
 	for (i = 0; i < n_sms; i++) {
 		sm_t	*sm = create_sm();
 		list_add_tail(&sm->list, &sms);
 	}
 
-	rsc_total = n_sms * sm_rsc_max;
+	for (i = 0; i < n_rscs_sm; i++)
+		rscs_total_sm[i] = n_sms * rscs_max_sm[i];
 }
 
 float
-get_overhead_sm(unsigned rsc)
+get_overhead_by_rsc_ratio(struct list_head *head, unsigned idx, float rsc_ratio)
 {
+	float	tb_rsc_ratio_start = 0, tb_overhead_start = 0, tb_overhead_gradient = 0;
 	struct list_head	*lp;
 
-	if (rsc <= 1)
-		return 0;
-
-	list_for_each (lp, &sm_overhead) {
+	list_for_each (lp, head) {
 		overhead_t     *oh = list_entry(lp, overhead_t, list);
-		if (rsc <= oh->to_rsc)
-			return oh->tb_overhead;
+
+		tb_overhead_gradient = (oh->tb_overheads[idx] - tb_overhead_start) / (oh->to_rsc_ratio - tb_rsc_ratio_start);
+		if (rsc_ratio <= oh->to_rsc_ratio)
+			break;
+		tb_overhead_start = oh->tb_overheads[idx];
+		tb_rsc_ratio_start = oh->to_rsc_ratio;
 	}
-	/* never reach */
-	return 1;
+
+	return tb_overhead_gradient * (rsc_ratio - tb_rsc_ratio_start) + tb_overhead_start;
+}
+
+static float
+get_overhead_sm_rsc(unsigned idx, unsigned rsc)
+{
+	float	rsc_ratio;
+
+	if (rsc == 0)
+		return 0;
+	rsc_ratio = (float)rsc / rscs_max_sm[idx];
+	return get_overhead_by_rsc_ratio(&overhead_sm, idx, rsc_ratio);
+}
+
+float
+get_overhead_sm(unsigned *rscs_sm)
+{
+	float	overhead_sm = 0;
+	unsigned	i;
+
+	for (i = 0; i < n_rscs_sm; i++)
+		overhead_sm += get_overhead_sm_rsc(i, rscs_sm[i]);
+
+	return overhead_sm;
 }
 
 void
-insert_overhead_sm(unsigned to_rsc, float tb_overhead)
+insert_overheads(struct list_head *head, float to_rsc_ratio, unsigned n_rscs_max, float *tb_overheads)
 {
 	overhead_t	*oh;
-	
-	if (!list_empty(&sm_overhead)) {
-		overhead_t	*oh_last = list_entry(sm_overhead.prev, overhead_t, list);
-		if (oh_last->to_rsc >= to_rsc) {
-			FATAL(2, "non-increasing resource value");
+	unsigned	i;
+
+	if (!list_empty(head)) {
+		overhead_t	*oh_last = list_entry(head->prev, overhead_t, list);
+
+		if (oh_last->to_rsc_ratio >= to_rsc_ratio) {
+			FATAL(2, "non-increasing resource ratio");
 		}
-		if (oh_last->tb_overhead >= tb_overhead) {
-			FATAL(2, "non-increasing overhead");
+		for (i = 0; i < n_rscs_max; i++) {
+			if (oh_last->tb_overheads[i] >= tb_overheads[i]) {
+				FATAL(2, "non-increasing overhead");
+			}
 		}
 	}
 	oh = (overhead_t *)malloc(sizeof(overhead_t));
-	oh->to_rsc = to_rsc;
-	oh->tb_overhead = tb_overhead;
-	list_add_tail(&oh->list, &sm_overhead);
+	oh->to_rsc_ratio = to_rsc_ratio;
+
+	for (i = 0; i < n_rscs_sm; i++)
+		oh->tb_overheads[i] = tb_overheads[i];
+
+	list_add_tail(&oh->list, head);
+}
+
+void
+insert_overheads_sm(float to_rsc_ratio, float *tb_overheads)
+{
+	insert_overheads(&overhead_sm, to_rsc_ratio, n_rscs_sm, tb_overheads);
 }
 
 void
 check_overhead_sanity_sm(void)
 {
-	overhead_t	*oh_last;
-
-	if (list_empty(&sm_overhead)) {
+	if (list_empty(&overhead_sm)) {
 		FATAL(2, "empty overhead");
-	}
-	oh_last = list_entry(sm_overhead.prev, overhead_t, list);
-	if (oh_last->to_rsc != sm_rsc_max) {
-		FATAL(2, "max sm overhead is not defined");
 	}
 }
 
 BOOL
-is_sm_resource_available(sm_t *sm, unsigned rsc_req)
+is_sm_resource_available(sm_t *sm, unsigned *rscs_req)
 {
+	unsigned	i;
+
 	if (sm == NULL) {
-		if (rsc_used + rsc_req <= rsc_total)
-			return TRUE;
+		if (rscs_req == NULL) {
+			for (i = 0; i < n_rscs_sm; i++)
+				if (rscs_used_sm[i] == rscs_total_sm[i])
+					return FALSE;
+		}
+		else {
+			for (i = 0; i < n_rscs_sm; i++)
+				if (rscs_used_sm[i] + rscs_req[i] > rscs_total_sm[i])
+					return FALSE;
+		}
 	}
 	else {
-		if (sm->rsc_used + rsc_req <= sm_rsc_max)
-			return TRUE;
+		for (i = 0; i < n_rscs_sm; i++)
+			if (sm->rscs_used[i] + rscs_req[i] > rscs_max_sm[i])
+				return FALSE;
 	}
-	return FALSE;
+	return TRUE;
+}
+
+float
+sm_get_max_rsc_usage(sm_t *sm, unsigned *rscs_req)
+{
+	unsigned	i;
+	float	usage_max = 0;
+
+	for (i = 0; i < n_rscs_sched; i++) {
+		float	usage = (float)(sm->rscs_used[i] + rscs_req[i]) / rscs_max_sm[i];
+		if (usage > usage_max)
+			usage_max = usage;
+	}
+	return usage_max;
 }
 
 sm_t *
@@ -127,44 +189,57 @@ get_next_sm(sm_t *sm)
 BOOL
 alloc_tb_on_sm(sm_t *sm, tb_t *tb)
 {
-	unsigned	rsc_req = tb->kernel->tb_rsc_req_cpu;
+	unsigned	i;
 
-	if (sm->rsc_used + rsc_req > sm_rsc_max)
-		return FALSE;
+	for (i = 0; i < n_rscs_sched; i++) {
+		if (sm->rscs_used[i] + tb->kernel->tb_rscs_req_sm[i] > rscs_max_sm[i])
+			return FALSE;
+	}
 
 	list_add_tail(&tb->list_sm, &sm->tbs);
-	sm->rsc_used += tb->kernel->tb_rsc_req_cpu;
-	rsc_used += tb->kernel->tb_rsc_req_cpu;
+	for (i = 0; i < n_rscs_sm; i++) {
+		sm->rscs_used[i] += tb->kernel->tb_rscs_req_sm[i];
+		rscs_used_sm[i] += tb->kernel->tb_rscs_req_sm[i];
+	}
 
 	tb->sm = sm;
 
-	assign_mem(tb->kernel->tb_rsc_req_mem);
+	assign_mem(tb->kernel->tb_rscs_req_mem);
+
+	if (tb->kernel->ts_start == 0)
+		tb->kernel->ts_start = simtime;
 
 	return TRUE;
 }
 
 static void
-run_tbs_on_sm(sm_t *sm)
+run_tbs_on_sm(sm_t *sm, unsigned *rscs_used_saved_mem)
 {
-	unsigned	rsc_used_saved = sm->rsc_used;
+	unsigned	rscs_used_saved_sm[N_MAX_RSCS_SM];
 	struct list_head	*lp, *next;
+	unsigned	i;
+
+	for (i = 0; i < n_rscs_sm; i++)
+		rscs_used_saved_sm[i] = sm->rscs_used[i];
 
 	list_for_each_n (lp, &sm->tbs, next) {
 		tb_t	*tb = list_entry(lp, tb_t, list_sm);
-		unsigned	mem_rsc_req = tb->kernel->tb_rsc_req_mem;
+		unsigned	*mem_rscs_req = tb->kernel->tb_rscs_req_mem;
 		float	overhead;
 		tb_on_run++;
 
 		assert(tb->work_remained > 0);
-		overhead = get_overhead_sm(rsc_used_saved) + get_overhead_mem(mem_rsc_req);
+		overhead = get_overhead_sm(rscs_used_saved_sm) + get_overhead_mem(rscs_used_saved_mem);
 		tb->work_remained -= (1 / (1 + overhead));
 		if (tb->work_remained <= 0) {
-			assert(sm->rsc_used >= tb->kernel->tb_rsc_req_cpu);
-			sm->rsc_used -= tb->kernel->tb_rsc_req_cpu;
-			assert(rsc_used >= tb->kernel->tb_rsc_req_cpu);
-			rsc_used -= tb->kernel->tb_rsc_req_cpu;
+			for (i = 0; i < n_rscs_sm; i++) {
+				assert(sm->rscs_used[i] >= tb->kernel->tb_rscs_req_sm[i]);
+				sm->rscs_used[i] -= tb->kernel->tb_rscs_req_sm[i];
+				assert(rscs_used_sm[i] >= tb->kernel->tb_rscs_req_sm[i]);
+				rscs_used_sm[i] -= tb->kernel->tb_rscs_req_sm[i];
+			}
 
-			revoke_mem(mem_rsc_req);
+			revoke_mem(mem_rscs_req);
 
 			list_del_init(&tb->list_sm);
 			tb->sm = NULL;
@@ -176,28 +251,36 @@ run_tbs_on_sm(sm_t *sm)
 void
 run_tbs_on_all_sms(void)
 {
+	unsigned	rscs_used_saved_mem[N_MAX_RSCS_MEM];
 	struct list_head	*lp;
+	unsigned	i;
+
 	tb_on_run = 0;
+
+	for (i = 0; i < n_rscs_mem; i++)
+		rscs_used_saved_mem[i] = rscs_used_mem[i];
 
 	list_for_each (lp, &sms) {
 		sm_t	*sm = list_entry(lp, sm_t, list);
-		run_tbs_on_sm(sm);
+		run_tbs_on_sm(sm, rscs_used_saved_mem);
 	}
-	rsc_used_all += rsc_used;
+	for (i = 0; i < n_rscs_sm; i++)
+		rscs_used_all_sm[i] += rscs_used_sm[i];
+
 	total_tb_run += tb_on_run;
 	update_mem_usage();
 }
 
 double
-get_sm_rsc_usage(void)
+get_sm_rsc_usage(unsigned idx)
 {
-	return ((double)rsc_used) / rsc_total * 100;
+	return ((double)rscs_used_sm[idx]) / rscs_total_sm[idx] * 100;
 }
 
 double
-get_sm_rsc_usage_all(void)
+get_sm_rsc_usage_all(unsigned idx)
 {
-	return (double)rsc_used_all / simtime / rsc_total * 100;
+	return (double)rscs_used_all_sm[idx] / simtime / rscs_total_sm[idx] * 100;
 }
 
 void
@@ -207,12 +290,18 @@ save_conf_sm_overheads(FILE *fp)
 
 	fprintf(fp, "*overhead_sm\n");
 
-	list_for_each (lp, &sm_overhead) {
+	list_for_each (lp, &overhead_sm) {
 		overhead_t	*oh = list_entry(lp, overhead_t, list);
+		unsigned	i;
 
-		fprintf(fp, "%u %f\n", oh->to_rsc, oh->tb_overhead);
+		fprintf(fp, "%f", oh->to_rsc_ratio);
+
+		for (i = 0; i < n_rscs_sm; i++)
+			fprintf(fp, " %f", oh->tb_overheads[i]);
+		fprintf(fp, "\n");
 	}
 }
+
 void
 report_TB_stat(void)
 {

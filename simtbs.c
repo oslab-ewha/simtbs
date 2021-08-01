@@ -137,7 +137,7 @@ runsim(void)
 {
 	while (!is_kernel_all_done() && !is_simtime_over()) {
 		check_new_arrived_kernel();
-		if (get_unscheduled_tb() && is_sm_resource_available(NULL, 1))
+		if (get_unscheduled_tb() && is_sm_resource_available(NULL, NULL))
 			policy->schedule();
 		run_tbs_on_all_sms();
 		if (verbose)

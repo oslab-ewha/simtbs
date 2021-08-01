@@ -1,123 +1,122 @@
 #include "simtbs.h"
 
-static unsigned mem_rsc_used;
-unsigned	mem_rsc_max;
-double 		mem_used_on_time;
-unsigned	mem_used_avg;
-static LIST_HEAD(mem_overhead);
+unsigned	rscs_used_mem[N_MAX_RSCS_MEM];
+double 		rscs_used_all_mem[N_MAX_RSCS_MEM];
+unsigned	n_rscs_mem;
+unsigned	rscs_max_mem[N_MAX_RSCS_MEM];
+
+extern float get_overhead_by_rsc_ratio(struct list_head *head, unsigned idx, float rsc_ratio);
+extern void insert_overheads(struct list_head *head, float to_rsc_ratio, unsigned n_rscs_max, float *tb_overheads);
+
+static LIST_HEAD(overhead_mem);
 
 void
-setup_mem(unsigned conf_mem_rsc_max)
+setup_mem(unsigned conf_n_rscs_mem, unsigned *conf_mem_rscs_max)
 {
-	mem_rsc_max = conf_mem_rsc_max;
+	unsigned	i;
+
+	n_rscs_mem = conf_n_rscs_mem;
+	for (i = 0; i < n_rscs_mem; i++)
+		rscs_max_mem[i] = conf_mem_rscs_max[i];
 }
 
 static float
-get_mem_overhead(unsigned rsc)
+get_overhead_mem_rsc(unsigned idx, unsigned rsc)
 {
-	overhead_t	*oh_prev = NULL;
-	struct list_head	*lp;
+	float	rsc_ratio;
 
-	list_for_each (lp, &mem_overhead) {
-		overhead_t     *oh = list_entry(lp, overhead_t, list);
-		if (rsc < oh->to_rsc) {
-			if (oh_prev == NULL)
-				return oh->tb_overhead / oh->to_rsc * rsc;
-			return (oh->tb_overhead - oh_prev->tb_overhead) / (oh->to_rsc - oh_prev->to_rsc) *
-				(rsc - oh_prev->to_rsc) + oh_prev->tb_overhead;
-		}
-		oh_prev = oh;
-	}
-
-	/* never reach */
-	return 1;
+	rsc_ratio = (float)rsc / rscs_max_mem[idx];
+	return get_overhead_by_rsc_ratio(&overhead_mem, idx, rsc_ratio);
 }
 
 float
-get_overhead_mem_SA(unsigned rsc)
+get_overhead_mem(unsigned *rscs_mem)
 {
-	return get_mem_overhead(rsc);
-}
+	float	overhead_mem = 0;
+	unsigned	i;
 
-float
-get_overhead_mem(unsigned rsc)
-{
-	return get_mem_overhead(mem_rsc_used) * rsc / mem_rsc_used;
+	for (i = 0; i < n_rscs_mem; i++)
+		overhead_mem += get_overhead_mem_rsc(i, rscs_mem[i]);
+
+	return overhead_mem;
 }
 
 void
-insert_overhead_mem(unsigned to_rsc, float tb_overhead)
+insert_overheads_mem(float to_rsc_ratio, float *tb_overheads)
 {
-	overhead_t	*oh;
-
-	if (!list_empty(&mem_overhead)) {
-		overhead_t	*oh_last = list_entry(mem_overhead.prev, overhead_t, list);
-		if (oh_last->to_rsc >= to_rsc) {
-			FATAL(2, "non-increasing resource value");
-		}
-		if (oh_last->tb_overhead >= tb_overhead) {
-			FATAL(2, "non-increasing overhead");
-		}
-	}
-	oh = (overhead_t *)malloc(sizeof(overhead_t));
-	oh->to_rsc = to_rsc;
-	oh->tb_overhead = tb_overhead;
-	list_add_tail(&oh->list, &mem_overhead);
+	insert_overheads(&overhead_mem, to_rsc_ratio, n_rscs_mem, tb_overheads);
 }
 
 void
 check_overhead_sanity_mem(void)
 {
-	overhead_t	*oh_last;
-
-	if (list_empty(&mem_overhead)) {
+	if (list_empty(&overhead_mem)) {
 		FATAL(2, "empty overhead");
 	}
-	oh_last = list_entry(mem_overhead.prev, overhead_t, list);
-	if (oh_last->to_rsc != mem_rsc_max) {
-		FATAL(2, "max mem overhead is not defined");
+}
+
+void
+assign_mem(unsigned *rscs_req_mem)
+{
+	unsigned	i;
+
+	for (i = 0; i < n_rscs_mem; i++) {
+		if (rscs_used_mem[i] + rscs_req_mem[i] > rscs_max_mem[i]) {
+			FATAL(4, "out of memory: %u\n", rscs_used_mem[i] + rscs_req_mem[i]);
+		}
+
+		rscs_used_mem[i] += rscs_req_mem[i];
 	}
 }
 
 void
-assign_mem(unsigned mem_rsc_req)
+revoke_mem(unsigned *rscs_req_mem)
 {
-	if (mem_rsc_used + mem_rsc_req > mem_rsc_max) {
-		FATAL(4, "out of memory: %u\n", mem_rsc_used + mem_rsc_req);
+	unsigned	i;
+
+	for (i = 0; i < n_rscs_mem; i++) {
+		assert(rscs_used_mem[i] >= rscs_req_mem[i]);
+
+		rscs_used_mem[i] -= rscs_req_mem[i];
 	}
-
-	mem_rsc_used += mem_rsc_req;
-}
-
-void
-revoke_mem(unsigned mem_rsc_req)
-{
-	assert(mem_rsc_used >= mem_rsc_req);
-
-	mem_rsc_used -= mem_rsc_req;
 }
 
 void
 save_conf_mem_overheads(FILE *fp)
 {
 	struct list_head	*lp;
+
 	fprintf(fp, "*overhead_mem\n");
 
-	list_for_each (lp, &mem_overhead) {
+	list_for_each (lp, &overhead_mem) {
 		overhead_t	*oh = list_entry(lp, overhead_t, list);
+		unsigned	i;
 
-		fprintf(fp, "%u %f\n", oh->to_rsc, oh->tb_overhead);
+		fprintf(fp, "%f", oh->to_rsc_ratio);
+		for (i = 0; i < n_rscs_mem; i++)
+			fprintf(fp, " %f", oh->tb_overheads[i]);
+		fprintf(fp, "\n");
 	}
 }
+
 void
 update_mem_usage(void)
 {
-	mem_used_on_time += mem_rsc_used;
+	unsigned	i;
+
+	for (i = 0; i < n_rscs_mem; i++)
+		rscs_used_all_mem[i] += rscs_used_mem[i];
 }
 
 void
 report_mem_stat(void)
 {
-	printf("Mem: %.1f\n", mem_used_on_time / simtime);
+	unsigned	i;
+
+	printf("Mem:");
+	for (i = 0; i < n_rscs_mem; i++) {
+		printf(" %.1f\n", rscs_used_all_mem[i] / simtime);
+	}
+	printf("\n");
 }
   

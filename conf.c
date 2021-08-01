@@ -1,9 +1,12 @@
 #include "simtbs.h"
 
-extern void setup_sms(unsigned n_sms, unsigned sm_rsc_max);
-extern void setup_mem(unsigned mem_rsc_max);
-extern void insert_overhead_sm(unsigned n_tb, float tb_overhead);
-extern void insert_overhead_mem(unsigned memsize, float tb_overhead);
+static int	wl_parsed;
+static BOOL	sm_parsed;
+
+extern void setup_sms(unsigned n_sms, unsigned n_rscs_sm, unsigned n_rscs_sched, unsigned *sm_rscs_max);
+extern void setup_mem(unsigned n_rscs_mem, unsigned *mem_rscs_max);
+extern void insert_overheads_sm(float to_rsc_ratio, float *tb_overheads);
+extern void insert_overheads_mem(float to_rsc_ratio, float *tb_overheads);
 
 extern void check_overhead_sanity_sm(void);
 extern void check_overhead_sanity_mem(void);
@@ -132,7 +135,7 @@ parse_rsc_req_with_comma(const char *c_rsc_req_str, unsigned *pcount, unsigned *
 }
 
 static BOOL
-parse_rsc_req_format(const char *c_rsc_req_str, unsigned *pcount, unsigned *n_reqs)
+parse_rsc_req_spec_sm(const char *c_rsc_req_str, unsigned *pcount, unsigned *n_reqs)
 {
 	unsigned	min, max;
 
@@ -154,10 +157,10 @@ static void
 parse_workload(FILE *fp)
 {
 	char	buf[1024];
-	BOOL	wl_parsed = FALSE;
 
 	while (fgets(buf, 1024, fp)) {
-		char	rsc_req_str[1024], rangestr_n_tbs[1024], rangestr_tb_duration[1024];
+		unsigned	n_scanned;
+		unsigned	i;
 
 		if (buf[0] == '#')
 			continue;
@@ -165,22 +168,50 @@ parse_workload(FILE *fp)
 			fseek(fp, -1 * strlen(buf), SEEK_CUR);
 			return;
 		}
-		if (wl_parsed) {
-			FATAL(2, "multiple workload lines: %s", trim(buf));
+		if (wl_parsed == 2) {
+			FATAL(2, "wrong workload lines: %s", trim(buf));
 		}
-		if (sscanf(buf, "%u %s %s %s", &wl_level, rsc_req_str, rangestr_n_tbs, rangestr_tb_duration) != 4) {
-			FATAL(2, "cannot load configuration: invalid workload format: %s", trim(buf));
+		if (wl_parsed == 0) {
+			char	rangestr_n_tbs[64], rangestr_tb_duration[64], rscs_req_str[N_MAX_RSCS_SM][64];
+
+			n_scanned = sscanf(buf, "%u %s %s %s %s %s %s %s %s %s %s", &wl_level, rangestr_n_tbs, rangestr_tb_duration,
+					   rscs_req_str[0], rscs_req_str[1], rscs_req_str[2], rscs_req_str[3],
+					   rscs_req_str[4], rscs_req_str[5], rscs_req_str[6], rscs_req_str[7]);
+			if (n_scanned < 4) {
+				FATAL(2, "cannot load configuration: invalid workload format: %s", trim(buf));
+			}
+			if (!parse_range(rangestr_n_tbs, &wl_n_tbs_min, &wl_n_tbs_max)) {
+				FATAL(2, "cannot load configuration: invalid # of tbs format: %s", trim(buf));
+			}
+			if (!parse_range(rangestr_tb_duration, &wl_tb_duration_min, &wl_tb_duration_max)) {
+				FATAL(2, "cannot load configuration: invalid # of tbs format: %s", trim(buf));
+			}
+			n_rscs_sm = n_scanned - 3;
+			if (n_rscs_sched > n_rscs_sm) {
+				FATAL(2, "# of resource for utilization is larger than total resouce count(%u > %u)", n_rscs_sched, n_rscs_sm);
+			}
+			for (i = 0; i < n_rscs_sm; i++) {
+				if (!parse_rsc_req_spec_sm(rscs_req_str[i], &wl_n_rscs_reqs_count[i], wl_n_rscs_reqs[i])) {
+					FATAL(2, "cannot load configuration: invalid resource request range format: %s", trim(buf));
+				}
+			}
+			wl_parsed++;
 		}
-		if (!parse_rsc_req_format(rsc_req_str, &wl_n_rsc_reqs_count, wl_n_rsc_reqs)) {
-			FATAL(2, "cannot load configuration: invalid resource request range format: %s", trim(buf));
-		}		
-		if (!parse_range(rangestr_n_tbs, &wl_n_tbs_min, &wl_n_tbs_max)) {
-			FATAL(2, "cannot load configuration: invalid # of tbs format: %s", trim(buf));
+		else {
+			char	rscs_req_str[N_MAX_RSCS_MEM][64];
+
+			n_scanned = sscanf(buf, "%s %s", rscs_req_str[0], rscs_req_str[1]);
+			if (n_scanned < 1) {
+				FATAL(2, "cannot load configuration: invalid workload format: %s", trim(buf));
+			}
+			n_rscs_mem = n_scanned;
+			for (i = 0; i < n_rscs_mem; i++) {
+				if (!parse_range(rscs_req_str[i], &wl_n_rscs_mem_min[i], &wl_n_rscs_mem_max[i])) {
+					FATAL(2, "cannot load configuration: invalid memory resource range format: %s", trim(buf));
+				}
+			}
+			wl_parsed++;
 		}
-		if (!parse_range(rangestr_tb_duration, &wl_tb_duration_min, &wl_tb_duration_max)) {
-			FATAL(2, "cannot load configuration: invalid # of tbs format: %s", trim(buf));
-		}
-		wl_parsed = TRUE;
 	}
 }
 
@@ -190,7 +221,10 @@ parse_mem(FILE *fp)
 	char	buf[1024];
 	BOOL	mem_parsed = FALSE;
 	while (fgets(buf, 1024, fp)) {
-		unsigned	mem_rsc_max;
+		unsigned	mem_rscs_max[N_MAX_RSCS_MEM];
+		unsigned	n_scanned;
+		unsigned	i;
+
 		if (buf[0] == '#')
 			continue;
 		if (buf[0] == '\n' || buf[0] == '*') {
@@ -200,13 +234,15 @@ parse_mem(FILE *fp)
 		if (mem_parsed) {
 			FATAL(2, "multiple mem lines: %s", trim(buf));
 		}
-		if (sscanf(buf, "%u", &mem_rsc_max) != 1) {
+		n_scanned = sscanf(buf, "%u %u", &mem_rscs_max[0], &mem_rscs_max[1]);
+		if (n_scanned < 1) {
 			FATAL(2, "cannot load configuration: invalid MEM format: %s", trim(buf));
 		}
-		if (mem_rsc_max == 0) {
-			FATAL(2, "maximum MEM resource cannot be 0: %s", trim(buf));
-		}
-		setup_mem(mem_rsc_max);
+		for (i = 0; i < n_scanned; i++)
+			if (mem_rscs_max[i] == 0) {
+				FATAL(2, "maximum MEM resource cannot be 0: %s", trim(buf));
+			}
+		setup_mem(n_scanned, mem_rscs_max);
 		mem_parsed = TRUE;
 	}
 }
@@ -215,10 +251,18 @@ static void
 parse_sm(FILE *fp)
 {
 	char	buf[1024];
-	BOOL	sm_parsed = FALSE;
+
+	if (wl_genmode) {
+		if (!wl_parsed) {
+			FATAL(2, "workload section should be defined first");
+		}
+	}
 
 	while (fgets(buf, 1024, fp)) {
-		unsigned	n_sms, sm_rsc_max;
+		unsigned	conf_n_sms, conf_n_rscs_sched, sm_rscs_max[N_MAX_RSCS_SM];
+		unsigned	conf_n_rscs_sm;
+		unsigned	n_scanned;
+		unsigned	i;
 
 		if (buf[0] == '#')
 			continue;
@@ -229,17 +273,33 @@ parse_sm(FILE *fp)
 		if (sm_parsed) {
 			FATAL(2, "multiple sm lines: %s", trim(buf));
 		}
-		if (sscanf(buf, "%u %u", &n_sms, &sm_rsc_max) != 2) {
+		n_scanned = sscanf(buf, "%u %u %u %u %u %u %u %u %u %u", &conf_n_sms, &conf_n_rscs_sched,
+				   &sm_rscs_max[0], &sm_rscs_max[1], &sm_rscs_max[2], &sm_rscs_max[3],
+				   &sm_rscs_max[4], &sm_rscs_max[5], &sm_rscs_max[6], &sm_rscs_max[7]);
+		if (n_scanned < 3) {
 			FATAL(2, "cannot load configuration: invalid SM format: %s", trim(buf));
 		}
 
-		if (n_sms == 0) {
+		if (conf_n_sms == 0) {
 			FATAL(2, "number of SM cannot be 0: %s", trim(buf));
 		}
-		if (sm_rsc_max == 0) {
-			FATAL(2, "maximum SM resouce cannot be 0: %s", trim(buf));
+		if (conf_n_rscs_sched == 0) {
+			FATAL(2, "zero resource for scheduling is not allowed: %s", trim(buf));
 		}
-		setup_sms(n_sms, sm_rsc_max);
+		conf_n_rscs_sm = n_scanned - 2;
+		if (conf_n_rscs_sched > conf_n_rscs_sm) {
+			FATAL(2, "resource count for scheduling is too large(%u > %u", n_rscs_sched, n_rscs_sm);
+		}
+		for (i = 0; i < conf_n_rscs_sm; i++) {
+			if (sm_rscs_max[i] == 0)
+				FATAL(2, "maximum SM resouce cannot be zero: %s", trim(buf));
+		}
+		if (wl_genmode) {
+			if (conf_n_rscs_sm != n_rscs_sm) {
+				FATAL(2, "mismatched SM resource count: %u != %u", conf_n_rscs_sm, n_rscs_sm);
+			}
+		}
+		setup_sms(conf_n_sms, conf_n_rscs_sm, conf_n_rscs_sched, sm_rscs_max);
 		sm_parsed = TRUE;
 	}
 }
@@ -248,9 +308,20 @@ static void
 parse_overhead_sm(FILE *fp)
 {
 	char	buf[1024];
+
+	if (wl_genmode) {
+		if (!wl_parsed) {
+			FATAL(2, "workload section should be defined first");
+		}
+	}
+	if (!sm_parsed) {
+		FATAL(2, "sm section should be defined first");
+	}
+
 	while (fgets(buf, 1024, fp)) {
-		unsigned	to_rsc;
-		float		tb_overhead;
+		float		to_rsc_ratio;
+		float		tb_overheads[N_MAX_RSCS_SM];
+		int		n_scanned;
 
 		if (buf[0] == '#')
 			continue;
@@ -258,14 +329,21 @@ parse_overhead_sm(FILE *fp)
 			fseek(fp, -1 * strlen(buf), SEEK_CUR);
 			return;
 		}
-		if (sscanf(buf, "%u %f", &to_rsc, &tb_overhead) != 2) {
+		n_scanned = sscanf(buf, "%f %f %f %f %f %f %f %f %f", &to_rsc_ratio,
+				   &tb_overheads[0], &tb_overheads[1], &tb_overheads[2], &tb_overheads[3],
+				   &tb_overheads[4], &tb_overheads[5], &tb_overheads[6], &tb_overheads[7]);
+		if (n_scanned < 2) {
 			FATAL(2, "cannot load configuration: invalid overhead format: %s", trim(buf));
 		}
 
-		if (to_rsc <= 1 || tb_overhead == 0) {
-			FATAL(2, "resource less than or equal 1 or 0 overhead is not allowed: %s", trim(buf));
+		if (to_rsc_ratio < 0 || to_rsc_ratio > 1)
+			FATAL(2, "resource ratio should be within [0, 1]");
+
+		if (n_scanned - 1 != n_rscs_sm) {
+			FATAL(2, "mismatched SM resource count for overhead: %u != %u", n_scanned - 1, n_rscs_sm);
 		}
-		insert_overhead_sm(to_rsc, tb_overhead);
+
+		insert_overheads_sm(to_rsc_ratio, tb_overheads);
 	}
 }
 
@@ -273,9 +351,20 @@ static void
 parse_overhead_mem(FILE *fp)
 {
 	char	buf[1024];
+
+	if (wl_genmode) {
+		if (!wl_parsed) {
+			FATAL(2, "workload section should be defined first");
+		}
+	}
+	if (!sm_parsed) {
+		FATAL(2, "sm section should be defined first");
+	}
+
 	while (fgets(buf, 1024, fp)) {
-		unsigned	to_rsc;
-		float		tb_overhead;
+		float	to_rsc_ratio;
+		float	tb_overheads[N_MAX_RSCS_MEM];
+		unsigned	n_scanned;
 
 		if (buf[0] == '#')
 			continue;
@@ -283,14 +372,19 @@ parse_overhead_mem(FILE *fp)
 			fseek(fp, -1 * strlen(buf), SEEK_CUR);
 			return;
 		}
-		if (sscanf(buf, "%u %f", &to_rsc, &tb_overhead) != 2) {
+		n_scanned = sscanf(buf, "%f %f %f", &to_rsc_ratio, &tb_overheads[0], &tb_overheads[1]);
+		if (n_scanned < 2) {
 			FATAL(2, "cannot load configuration: invalid overhead format: %s", trim(buf));
 		}
 
-		if (to_rsc <= 1 || tb_overhead == 0) {
-			FATAL(2, "resource less than or equal 1 or 0 overhead is not allowed: %s", trim(buf));
+		if (to_rsc_ratio < 0 || to_rsc_ratio > 1)
+			FATAL(2, "resource ratio should be within [0, 1]");
+
+		if (n_scanned - 1 != n_rscs_mem) {
+			FATAL(2, "mismatched memory resource count for overhead: %u != %u", n_scanned - 1, n_rscs_mem);
 		}
-		insert_overhead_mem(to_rsc, tb_overhead);
+
+		insert_overheads_mem(to_rsc_ratio, tb_overheads);
 	}
 }
 
@@ -300,7 +394,9 @@ parse_kernel(FILE *fp)
 	char	buf[1024];
 
 	while (fgets(buf, 1024, fp)) {
-		unsigned	start_ts, n_tb, tb_rsc_req, tb_mem_rsc_req, tb_duration;
+		unsigned	start_ts, n_tb, tb_duration;
+		unsigned	tb_rscs_req_sm[N_MAX_RSCS_SM], tb_rscs_req_mem[N_MAX_RSCS_MEM];
+		unsigned	n_scanned;
 
 		if (buf[0] == '#')
 			continue;
@@ -308,14 +404,34 @@ parse_kernel(FILE *fp)
 			fseek(fp, -1 * strlen(buf), SEEK_CUR);
 			return;
 		}
-		if (sscanf(buf, "%u %u %u %u %u ", &start_ts, &n_tb, &tb_rsc_req, &tb_mem_rsc_req, &tb_duration) != 5) {
+
+		if (wl_genmode)
+			continue;
+
+		n_scanned = sscanf(buf, "%u %u %u %u %u %u %u %u %u %u %u %u %u", &start_ts, &n_tb, &tb_duration,
+				   &tb_rscs_req_sm[0], &tb_rscs_req_sm[1], &tb_rscs_req_sm[2], &tb_rscs_req_sm[3],
+				   &tb_rscs_req_sm[4], &tb_rscs_req_sm[5], &tb_rscs_req_sm[6], &tb_rscs_req_sm[7],
+				   &tb_rscs_req_mem[8], &tb_rscs_req_mem[9]);
+		if (n_scanned < 5) {
 			FATAL(2, "cannot load configuration: invalid kernel format: %s", trim(buf));
 		}
 
-		if (start_ts == 0 || n_tb == 0 || tb_rsc_req == 0 || tb_duration == 0) {
-			FATAL(2, "kernel start timestamp, TB count, resource requirement or duration cannot be 0: %s", trim(buf));
+		if (start_ts == 0 || n_tb == 0 || tb_duration == 0) {
+			FATAL(2, "kernel start timestamp, TB count or duration cannot be 0: %s", trim(buf));
 		}
-		insert_kernel(start_ts, n_tb, tb_rsc_req, tb_mem_rsc_req, tb_duration);
+		if (n_scanned != 3 + n_rscs_sm + n_rscs_mem) {
+			FATAL(2, "invalid resource count: %d resource count required", n_rscs_sm + n_rscs_mem);
+		}
+		if (n_rscs_sm < N_MAX_RSCS_SM) {
+			int	n_scanned_mem = n_rscs_sm + n_rscs_mem - N_MAX_RSCS_SM;
+			int	n_scanned_non_sm = N_MAX_RSCS_SM - n_rscs_sm;
+			if (n_scanned_mem > 0)
+				memcpy(tb_rscs_req_mem + n_scanned_mem, tb_rscs_req_mem, sizeof(unsigned) * n_scanned_mem);
+			if (n_scanned_non_sm > n_rscs_mem)
+				n_scanned_non_sm = n_rscs_mem;
+			memcpy(tb_rscs_req_mem, tb_rscs_req_sm + n_scanned_non_sm, sizeof(unsigned) * n_scanned_non_sm);
+		}
+		insert_kernel(start_ts, n_tb, tb_rscs_req_sm, tb_rscs_req_mem, tb_duration);
 	}
 }
 
@@ -378,6 +494,7 @@ void
 save_conf(const char *fpath)
 {
 	FILE	*fp;
+	unsigned	i;
 
 	fp = fopen(fpath, "w");
 	if (fp == NULL) {
@@ -388,10 +505,19 @@ save_conf(const char *fpath)
 	fprintf(fp, "%u\n", max_simtime);
 
 	fprintf(fp, "*sm\n");
-	fprintf(fp, "%u %u\n", n_sms, sm_rsc_max);
+	fprintf(fp, "%u %u", n_sms, n_rscs_sched);
+
+	for (i = 0; i < n_rscs_sm; i++)
+		fprintf(fp, " %u", rscs_max_sm[i]);
+	fprintf(fp, "\n");
 
 	fprintf(fp, "*mem\n");
-	fprintf(fp, "%u\n", mem_rsc_max);
+	for (i = 0; i < n_rscs_mem; i++) {
+		if (i != 0)
+			fprintf(fp, " ");
+		fprintf(fp, "%u", rscs_max_mem[i]);
+	}
+	fprintf(fp, "\n");
 
 	save_conf_mem_overheads(fp);
 	save_conf_sm_overheads(fp);
