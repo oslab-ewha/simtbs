@@ -80,13 +80,14 @@ extern unsigned rscs_used_mem[N_MAX_RSCS_MEM];
 
 extern BOOL	verbose;
 
-extern BOOL	wl_genmode;
+extern BOOL	wl_genmode, wl_genmode_static_kernel;
 extern unsigned wl_level, wl_max_starved;
 extern unsigned	wl_n_tbs_min, wl_n_tbs_max, wl_tb_duration_min, wl_tb_duration_max;
 extern unsigned	wl_n_rscs_reqs_count[N_MAX_RSCS_SM], wl_n_rscs_reqs[N_MAX_RSCS_SM][1024];
 extern unsigned	wl_n_rscs_mem_min[N_MAX_RSCS_MEM], wl_n_rscs_mem_max[N_MAX_RSCS_MEM];
 
-void insert_kernel(unsigned start_ts, unsigned n_tb, unsigned *tb_rscs_req_cpu, unsigned *tb_rscs_mem_req, unsigned tb_len);
+void insert_kernel(unsigned start_ts, unsigned n_tb, unsigned *tb_rscs_req_sm, unsigned *tb_rscs_req_mem, unsigned tb_len);
+void add_kernel_for_wl(unsigned n_tb, unsigned *tb_rscs_req_sm, unsigned *tb_rscs_req_mem, unsigned tb_len);
 
 tb_t *get_unscheduled_tb(void);
 unsigned *get_tb_rscs_req_sm(tb_t *tb);

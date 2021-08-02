@@ -115,11 +115,13 @@ parse_args(int argc, char *argv[])
 	if (wl_genmode) {
 		if (max_simtime == 0)
 			FATAL(3, "workload generation mode requires maximum simtime");
-		if (wl_n_tbs_min >= wl_n_tbs_max) {
-			FATAL(3, "Invalid range for number of TB's");
-		}
-		if (wl_tb_duration_min >= wl_n_tbs_max) {
-			FATAL(3, "Invalid range for TB duration");
+		if (!wl_genmode_static_kernel) {
+			if (wl_n_tbs_min >= wl_n_tbs_max) {
+				FATAL(3, "Invalid range for number of TB's");
+			}
+			if (wl_tb_duration_min >= wl_n_tbs_max) {
+				FATAL(3, "Invalid range for TB duration");
+			}
 		}
 	}
 }

@@ -177,22 +177,27 @@ parse_workload(FILE *fp)
 			n_scanned = sscanf(buf, "%u %s %s %s %s %s %s %s %s %s %s", &wl_level, rangestr_n_tbs, rangestr_tb_duration,
 					   rscs_req_str[0], rscs_req_str[1], rscs_req_str[2], rscs_req_str[3],
 					   rscs_req_str[4], rscs_req_str[5], rscs_req_str[6], rscs_req_str[7]);
-			if (n_scanned < 4) {
-				FATAL(2, "cannot load configuration: invalid workload format: %s", trim(buf));
+			if (n_scanned == 1) {
+				wl_genmode_static_kernel = TRUE;
 			}
-			if (!parse_range(rangestr_n_tbs, &wl_n_tbs_min, &wl_n_tbs_max)) {
-				FATAL(2, "cannot load configuration: invalid # of tbs format: %s", trim(buf));
-			}
-			if (!parse_range(rangestr_tb_duration, &wl_tb_duration_min, &wl_tb_duration_max)) {
-				FATAL(2, "cannot load configuration: invalid # of tbs format: %s", trim(buf));
-			}
-			n_rscs_sm = n_scanned - 3;
-			if (n_rscs_sched > n_rscs_sm) {
-				FATAL(2, "# of resource for utilization is larger than total resouce count(%u > %u)", n_rscs_sched, n_rscs_sm);
-			}
-			for (i = 0; i < n_rscs_sm; i++) {
-				if (!parse_rsc_req_spec_sm(rscs_req_str[i], &wl_n_rscs_reqs_count[i], wl_n_rscs_reqs[i])) {
-					FATAL(2, "cannot load configuration: invalid resource request range format: %s", trim(buf));
+			else {
+				if (n_scanned < 4) {
+					FATAL(2, "cannot load configuration: invalid workload format: %s", trim(buf));
+				}
+				if (!parse_range(rangestr_n_tbs, &wl_n_tbs_min, &wl_n_tbs_max)) {
+					FATAL(2, "cannot load configuration: invalid # of tbs format: %s", trim(buf));
+				}
+				if (!parse_range(rangestr_tb_duration, &wl_tb_duration_min, &wl_tb_duration_max)) {
+					FATAL(2, "cannot load configuration: invalid # of tbs format: %s", trim(buf));
+				}
+				n_rscs_sm = n_scanned - 3;
+				if (n_rscs_sched > n_rscs_sm) {
+					FATAL(2, "# of resource for utilization is larger than total resouce count(%u > %u)", n_rscs_sched, n_rscs_sm);
+				}
+				for (i = 0; i < n_rscs_sm; i++) {
+					if (!parse_rsc_req_spec_sm(rscs_req_str[i], &wl_n_rscs_reqs_count[i], wl_n_rscs_reqs[i])) {
+						FATAL(2, "cannot load configuration: invalid resource request range format: %s", trim(buf));
+					}
 				}
 			}
 			wl_parsed++;
@@ -294,7 +299,7 @@ parse_sm(FILE *fp)
 			if (sm_rscs_max[i] == 0)
 				FATAL(2, "maximum SM resouce cannot be zero: %s", trim(buf));
 		}
-		if (wl_genmode) {
+		if (wl_genmode && !wl_genmode_static_kernel) {
 			if (conf_n_rscs_sm != n_rscs_sm) {
 				FATAL(2, "mismatched SM resource count: %u != %u", conf_n_rscs_sm, n_rscs_sm);
 			}
@@ -405,7 +410,7 @@ parse_kernel(FILE *fp)
 			return;
 		}
 
-		if (wl_genmode)
+		if (wl_genmode && !wl_genmode_static_kernel)
 			continue;
 
 		n_scanned = sscanf(buf, "%u %u %u %u %u %u %u %u %u %u %u %u %u", &start_ts, &n_tb, &tb_duration,
@@ -431,7 +436,10 @@ parse_kernel(FILE *fp)
 				n_scanned_non_sm = n_rscs_mem;
 			memcpy(tb_rscs_req_mem, tb_rscs_req_sm + n_scanned_non_sm, sizeof(unsigned) * n_scanned_non_sm);
 		}
-		insert_kernel(start_ts, n_tb, tb_rscs_req_sm, tb_rscs_req_mem, tb_duration);
+		if (wl_genmode)
+			add_kernel_for_wl(n_tb, tb_rscs_req_sm, tb_rscs_req_mem, tb_duration);
+		else
+			insert_kernel(start_ts, n_tb, tb_rscs_req_sm, tb_rscs_req_mem, tb_duration);
 	}
 }
 
