@@ -5,7 +5,7 @@ static unsigned	long long	rscs_used_all_sm[N_MAX_RSCS_SM];
 static unsigned tb_on_run;
 double total_tb_run = 0;
 unsigned	rscs_total_sm[N_MAX_RSCS_SM];
-unsigned	n_sms, n_rscs_sm, n_rscs_sched, rscs_max_sm[N_MAX_RSCS_SM];
+unsigned	n_sms, n_rscs_sm, n_rscs_sched, n_rscs_compute, rscs_max_sm[N_MAX_RSCS_SM];
 
 static LIST_HEAD(sms);
 static LIST_HEAD(overhead_sm);
@@ -27,7 +27,7 @@ create_sm(void)
 }
 
 void
-setup_sms(unsigned conf_n_sms, unsigned conf_n_rscs_sm, unsigned conf_n_rscs_sched, unsigned *conf_rscs_max_sm)
+setup_sms(unsigned conf_n_sms, unsigned conf_n_rscs_sm, unsigned conf_n_rscs_sched, unsigned conf_n_rscs_compute, unsigned *conf_rscs_max_sm)
 {
 	unsigned	i;
 
@@ -35,6 +35,7 @@ setup_sms(unsigned conf_n_sms, unsigned conf_n_rscs_sm, unsigned conf_n_rscs_sch
 
 	n_rscs_sm = conf_n_rscs_sm;
 	n_rscs_sched = conf_n_rscs_sched;
+	n_rscs_compute = conf_n_rscs_compute;
 
 	for (i = 0; i < n_rscs_sm; i++)
 		rscs_max_sm[i] = conf_rscs_max_sm[i];

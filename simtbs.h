@@ -73,7 +73,8 @@ typedef struct {
 } policy_t;
 
 extern unsigned simtime, max_simtime;
-extern unsigned n_sms, n_rscs_sched, n_rscs_sm, n_rscs_mem;
+extern unsigned n_sms, n_rscs_sched, n_rscs_compute;
+extern unsigned	n_rscs_sm, n_rscs_mem;
 extern unsigned	rscs_max_sm[N_MAX_RSCS_SM];
 extern unsigned rscs_max_mem[N_MAX_RSCS_MEM];
 extern unsigned rscs_used_mem[N_MAX_RSCS_MEM];

@@ -3,7 +3,7 @@
 static int	wl_parsed;
 static BOOL	sm_parsed;
 
-extern void setup_sms(unsigned n_sms, unsigned n_rscs_sm, unsigned n_rscs_sched, unsigned *sm_rscs_max);
+extern void setup_sms(unsigned n_sms, unsigned n_rscs_sm, unsigned n_rscs_sched, unsigned n_rscs_compute, unsigned *sm_rscs_max);
 extern void setup_mem(unsigned n_rscs_mem, unsigned *mem_rscs_max);
 extern void insert_overheads_sm(float to_rsc_ratio, float *tb_overheads);
 extern void insert_overheads_mem(float to_rsc_ratio, float *tb_overheads);
@@ -191,9 +191,6 @@ parse_workload(FILE *fp)
 					FATAL(2, "cannot load configuration: invalid # of tbs format: %s", trim(buf));
 				}
 				n_rscs_sm = n_scanned - 3;
-				if (n_rscs_sched > n_rscs_sm) {
-					FATAL(2, "# of resource for utilization is larger than total resouce count(%u > %u)", n_rscs_sched, n_rscs_sm);
-				}
 				for (i = 0; i < n_rscs_sm; i++) {
 					if (!parse_rsc_req_spec_sm(rscs_req_str[i], &wl_n_rscs_reqs_count[i], wl_n_rscs_reqs[i])) {
 						FATAL(2, "cannot load configuration: invalid resource request range format: %s", trim(buf));
@@ -264,7 +261,7 @@ parse_sm(FILE *fp)
 	}
 
 	while (fgets(buf, 1024, fp)) {
-		unsigned	conf_n_sms, conf_n_rscs_sched, sm_rscs_max[N_MAX_RSCS_SM];
+		unsigned	conf_n_sms, conf_n_rscs_sched, conf_n_rscs_compute, sm_rscs_max[N_MAX_RSCS_SM];
 		unsigned	conf_n_rscs_sm;
 		unsigned	n_scanned;
 		unsigned	i;
@@ -278,10 +275,10 @@ parse_sm(FILE *fp)
 		if (sm_parsed) {
 			FATAL(2, "multiple sm lines: %s", trim(buf));
 		}
-		n_scanned = sscanf(buf, "%u %u %u %u %u %u %u %u %u %u", &conf_n_sms, &conf_n_rscs_sched,
+		n_scanned = sscanf(buf, "%u %u %u %u %u %u %u %u %u %u %u", &conf_n_sms, &conf_n_rscs_sched, &conf_n_rscs_compute,
 				   &sm_rscs_max[0], &sm_rscs_max[1], &sm_rscs_max[2], &sm_rscs_max[3],
 				   &sm_rscs_max[4], &sm_rscs_max[5], &sm_rscs_max[6], &sm_rscs_max[7]);
-		if (n_scanned < 3) {
+		if (n_scanned < 4) {
 			FATAL(2, "cannot load configuration: invalid SM format: %s", trim(buf));
 		}
 
@@ -291,9 +288,12 @@ parse_sm(FILE *fp)
 		if (conf_n_rscs_sched == 0) {
 			FATAL(2, "zero resource for scheduling is not allowed: %s", trim(buf));
 		}
-		conf_n_rscs_sm = n_scanned - 2;
+		conf_n_rscs_sm = n_scanned - 3;
 		if (conf_n_rscs_sched > conf_n_rscs_sm) {
-			FATAL(2, "resource count for scheduling is too large(%u > %u", n_rscs_sched, n_rscs_sm);
+			FATAL(2, "resource count for scheduling is too large(%u > %u)", conf_n_rscs_sched, conf_n_rscs_sm);
+		}
+		if (conf_n_rscs_compute > conf_n_rscs_sm) {
+			FATAL(2, "computing resource count is too large(%u > %u)", conf_n_rscs_compute, conf_n_rscs_sm);
 		}
 		for (i = 0; i < conf_n_rscs_sm; i++) {
 			if (sm_rscs_max[i] == 0)
@@ -304,7 +304,7 @@ parse_sm(FILE *fp)
 				FATAL(2, "mismatched SM resource count: %u != %u", conf_n_rscs_sm, n_rscs_sm);
 			}
 		}
-		setup_sms(conf_n_sms, conf_n_rscs_sm, conf_n_rscs_sched, sm_rscs_max);
+		setup_sms(conf_n_sms, conf_n_rscs_sm, conf_n_rscs_sched, conf_n_rscs_compute, sm_rscs_max);
 		sm_parsed = TRUE;
 	}
 }
