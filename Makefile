@@ -2,7 +2,7 @@ all: simtbs
 
 CFLAGS = -g -Wall -DDEBUG
 
-POLICY = rr rrf bfa dfa
+POLICY = rr rrf bfa dfa smk fua
 
 SIMTBS_OBJS = simtbs.o conf.o kernel.o sm.o mem.o report.o wl.o
 POLICY_OBJS = $(POLICY:%=policy_%.o)

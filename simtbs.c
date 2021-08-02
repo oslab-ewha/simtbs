@@ -10,7 +10,7 @@ usage(void)
 " <options>\n"
 "      -h: this message\n"
 "      -v: verbose mode\n"
-"      -p <tbs policy>: rr(default), rrf, bfa, dfa\n"
+"      -p <tbs policy>: rr(default), rrf, bfa, dfa, smk, fua\n"
 "      -g <new conf path>: generate workload\n"
 	);
 }
@@ -29,9 +29,11 @@ extern policy_t	policy_rr;
 extern policy_t	policy_rrf;
 extern policy_t	policy_bfa;
 extern policy_t	policy_dfa;
+extern policy_t	policy_smk;
+extern policy_t	policy_fua;
 
 static policy_t	*all_policies[] = {
-	&policy_rr, &policy_rrf, &policy_bfa, &policy_dfa
+	&policy_rr, &policy_rrf, &policy_bfa, &policy_smk, &policy_fua
 };
 
 extern BOOL is_kernel_all_done(void);

@@ -158,12 +158,12 @@ is_sm_resource_available(sm_t *sm, unsigned *rscs_req)
 }
 
 float
-sm_get_max_rsc_usage(sm_t *sm, unsigned *rscs_req)
+sm_get_max_rsc_usage(sm_t *sm, unsigned int start, unsigned int end, unsigned *rscs_req)
 {
 	unsigned	i;
 	float	usage_max = 0;
 
-	for (i = 0; i < n_rscs_sched; i++) {
+	for (i = start; i < end; i++) {
 		float	usage = (float)(sm->rscs_used[i] + rscs_req[i]) / rscs_max_sm[i];
 		if (usage > usage_max)
 			usage_max = usage;

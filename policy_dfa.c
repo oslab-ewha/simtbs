@@ -16,7 +16,7 @@ get_sm_by_dfa(unsigned *req_rscs)
 		if (!is_sm_resource_available(sm, req_rscs))
 			continue;
 
-		usage = sm_get_max_rsc_usage(sm, req_rscs);
+		usage = sm_get_max_rsc_usage(sm, 0, n_rscs_sched, req_rscs);
 		if (sm_max == NULL || usage > usage_max) {
 			sm_max = sm;
 			usage_max = usage;
