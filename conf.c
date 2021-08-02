@@ -174,9 +174,11 @@ parse_workload(FILE *fp)
 		if (wl_parsed == 0) {
 			char	rangestr_n_tbs[64], rangestr_tb_duration[64], rscs_req_str[N_MAX_RSCS_SM][64];
 
-			n_scanned = sscanf(buf, "%u %s %s %s %s %s %s %s %s %s %s", &wl_level, rangestr_n_tbs, rangestr_tb_duration,
+			n_scanned = sscanf(buf, "%u %s %s %s %s %s %s %s %s %s %s %s %s %s %s",
+					   &wl_level, rangestr_n_tbs, rangestr_tb_duration,
 					   rscs_req_str[0], rscs_req_str[1], rscs_req_str[2], rscs_req_str[3],
-					   rscs_req_str[4], rscs_req_str[5], rscs_req_str[6], rscs_req_str[7]);
+					   rscs_req_str[4], rscs_req_str[5], rscs_req_str[6], rscs_req_str[7],
+					   rscs_req_str[8], rscs_req_str[9], rscs_req_str[10], rscs_req_str[11]);
 			if (n_scanned == 1) {
 				wl_genmode_static_kernel = TRUE;
 			}
@@ -275,9 +277,11 @@ parse_sm(FILE *fp)
 		if (sm_parsed) {
 			FATAL(2, "multiple sm lines: %s", trim(buf));
 		}
-		n_scanned = sscanf(buf, "%u %u %u %u %u %u %u %u %u %u %u", &conf_n_sms, &conf_n_rscs_sched, &conf_n_rscs_compute,
+		n_scanned = sscanf(buf, "%u %u %u %u %u %u %u %u %u %u %u %u %u %u %u",
+				   &conf_n_sms, &conf_n_rscs_sched, &conf_n_rscs_compute,
 				   &sm_rscs_max[0], &sm_rscs_max[1], &sm_rscs_max[2], &sm_rscs_max[3],
-				   &sm_rscs_max[4], &sm_rscs_max[5], &sm_rscs_max[6], &sm_rscs_max[7]);
+				   &sm_rscs_max[4], &sm_rscs_max[5], &sm_rscs_max[6], &sm_rscs_max[7],
+				   &sm_rscs_max[8], &sm_rscs_max[9], &sm_rscs_max[10], &sm_rscs_max[11]);
 		if (n_scanned < 4) {
 			FATAL(2, "cannot load configuration: invalid SM format: %s", trim(buf));
 		}
@@ -334,9 +338,10 @@ parse_overhead_sm(FILE *fp)
 			fseek(fp, -1 * strlen(buf), SEEK_CUR);
 			return;
 		}
-		n_scanned = sscanf(buf, "%f %f %f %f %f %f %f %f %f", &to_rsc_ratio,
+		n_scanned = sscanf(buf, "%f %f %f %f %f %f %f %f %f %f %f %f %f", &to_rsc_ratio,
 				   &tb_overheads[0], &tb_overheads[1], &tb_overheads[2], &tb_overheads[3],
-				   &tb_overheads[4], &tb_overheads[5], &tb_overheads[6], &tb_overheads[7]);
+				   &tb_overheads[4], &tb_overheads[5], &tb_overheads[6], &tb_overheads[7],
+				   &tb_overheads[8], &tb_overheads[9], &tb_overheads[10], &tb_overheads[11]);
 		if (n_scanned < 2) {
 			FATAL(2, "cannot load configuration: invalid overhead format: %s", trim(buf));
 		}
@@ -413,11 +418,12 @@ parse_kernel(FILE *fp)
 		if (wl_genmode && !wl_genmode_static_kernel)
 			continue;
 
-		n_scanned = sscanf(buf, "%u %u %u %u %u %u %u %u %u %u %u %u %u", &start_ts, &n_tb, &tb_duration,
+		n_scanned = sscanf(buf, "%u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u", &start_ts, &n_tb, &tb_duration,
 				   &tb_rscs_req_sm[0], &tb_rscs_req_sm[1], &tb_rscs_req_sm[2], &tb_rscs_req_sm[3],
 				   &tb_rscs_req_sm[4], &tb_rscs_req_sm[5], &tb_rscs_req_sm[6], &tb_rscs_req_sm[7],
-				   &tb_rscs_req_mem[8], &tb_rscs_req_mem[9]);
-		if (n_scanned < 5) {
+				   &tb_rscs_req_sm[8], &tb_rscs_req_sm[9], &tb_rscs_req_sm[10], &tb_rscs_req_sm[11],
+				   &tb_rscs_req_mem[0], &tb_rscs_req_mem[1]);
+		if (n_scanned < 4) {
 			FATAL(2, "cannot load configuration: invalid kernel format: %s", trim(buf));
 		}
 

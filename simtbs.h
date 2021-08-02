@@ -16,7 +16,7 @@
 #define TRUE	1
 #define FALSE	0
 
-#define N_MAX_RSCS_SM	8
+#define N_MAX_RSCS_SM	12
 #define N_MAX_RSCS_MEM	2
 #define MAX_CPU_FREQS	10
 #define MAX_MEMS	2
