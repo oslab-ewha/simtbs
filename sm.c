@@ -83,11 +83,25 @@ float
 get_overhead_sm(unsigned *rscs_sm)
 {
 	float	overhead_sm = 0;
+	float	overhead_compute = 0, overhead_noncom = 0;
 	unsigned	i;
 
-	for (i = 0; i < n_rscs_sm; i++)
+	for (i = 0; i < n_rscs_sched; i++)
 		overhead_sm += get_overhead_sm_rsc(i, rscs_sm[i]);
 
+	for (i = n_rscs_sched; i < n_rscs_compute; i++) {
+		float	overhead = get_overhead_sm_rsc(i, rscs_sm[i]);
+		if (overhead > overhead_compute)
+			overhead_compute = overhead;
+	}
+	overhead_sm += overhead_compute;
+
+	for (i = n_rscs_compute; i < n_rscs_sm; i++) {
+		float	overhead = get_overhead_sm_rsc(i, rscs_sm[i]);
+		if (overhead > overhead_noncom)
+			overhead_noncom = overhead;
+	}
+	overhead_sm += overhead_noncom;
 	return overhead_sm;
 }
 
@@ -164,7 +178,14 @@ sm_get_max_rsc_usage(sm_t *sm, unsigned int start, unsigned int end, unsigned *r
 	float	usage_max = 0;
 
 	for (i = start; i < end; i++) {
-		float	usage = (float)(sm->rscs_used[i] + rscs_req[i]) / rscs_max_sm[i];
+		unsigned	rsc_used = 0;
+		float	usage;
+
+		if (sm)
+			rsc_used += sm->rscs_used[i];
+		if (rscs_req)
+			rsc_used += rscs_req[i];
+		usage = (float)rsc_used / rscs_max_sm[i];
 		if (usage > usage_max)
 			usage_max = usage;
 	}

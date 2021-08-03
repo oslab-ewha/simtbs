@@ -17,11 +17,13 @@ get_sm_by_smk(unsigned *req_rscs)
 
 		sm = get_next_sm_rr(sm_last);
 		if (is_sm_resource_available(sm, req_rscs)) {
-			float	usage_compute, usage_mem;
+			float	usage_compute, usage_noncom;
 
-			usage_compute = sm_get_max_rsc_usage(sm, 0, n_rscs_compute, req_rscs);
-			usage_mem = sm_get_max_rsc_usage(sm, n_rscs_compute, n_rscs_sm,  req_rscs);
-			if (usage_compute <= 1 && usage_mem <= 1) {
+			usage_compute = sm_get_max_rsc_usage(sm, 0, n_rscs_compute, NULL);
+			usage_compute += sm_get_max_rsc_usage(NULL, 0, n_rscs_compute, req_rscs);
+			usage_noncom = sm_get_max_rsc_usage(sm, n_rscs_compute, n_rscs_sm,  NULL);
+			usage_noncom += sm_get_max_rsc_usage(NULL, n_rscs_compute, n_rscs_sm,  req_rscs);
+			if (usage_compute <= 1 && usage_noncom <= 1) {
 				sm_last = sm;
 				return sm;
 			}
