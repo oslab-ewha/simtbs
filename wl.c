@@ -4,10 +4,13 @@
 
 BOOL	wl_genmode_static_kernel;
 
+static double	rsc_usage_avg_all;
+
 static LIST_HEAD(kernels_wl);
 
 typedef struct {
 	unsigned	ts_end;
+	unsigned	n_tbs;
 	unsigned	rscs_req_sm[N_MAX_RSCS_SM];
 	struct list_head	list;
 } kernel_wl_t;
@@ -54,13 +57,14 @@ insert_kernel_wl(kernel_wl_t *kernel_new)
 }
 
 static void
-add_kernel(unsigned ts_end, unsigned *tb_rscs_req_sm)
+add_kernel(unsigned ts_end, unsigned n_tbs, unsigned *tb_rscs_req_sm)
 {
 	kernel_wl_t	*kernel;
 	unsigned	i;
 
 	kernel = (kernel_wl_t *)malloc(sizeof(kernel_wl_t));
 	kernel->ts_end = ts_end;
+	kernel->n_tbs = n_tbs;
 
 	for (i = 0; i < n_rscs_sm; i++)
 		kernel->rscs_req_sm[i] = tb_rscs_req_sm[i];
@@ -68,7 +72,7 @@ add_kernel(unsigned ts_end, unsigned *tb_rscs_req_sm)
 	insert_kernel_wl(kernel);
 
 	for (i = 0; i < n_rscs_sm; i++)
-		wl_rscs_used_sm[i] += tb_rscs_req_sm[i];
+		wl_rscs_used_sm[i] += tb_rscs_req_sm[i] * n_tbs;
 
 	n_kernels++;
 }
@@ -98,21 +102,22 @@ add_kernel_for_wl(unsigned n_tbs, unsigned *tb_rscs_req_sm, unsigned *tb_rscs_re
 static void
 gen_kernel(unsigned n_tbs, unsigned tb_len, unsigned *rscs_req_sm, unsigned *rscs_req_mem)
 {
-	double	rsc_usage_avg, rsc_usage_sum;
+	double	rsc_usage_sum;
 	unsigned	i;
 
 	rsc_usage_sum = 0;
 	for (i = 0; i < n_rscs_sched; i++) {
-		rsc_usage_sum += ((double)wl_rscs_used_sm[i] + rscs_req_sm[i] * n_tbs) / rscs_total_sm[i] * 100;
+		rsc_usage_sum += ((double)wl_rscs_used_sm[i] / rscs_total_sm[i]) * 100;
 	}
-	rsc_usage_avg = rsc_usage_sum / n_rscs_sched;
 
-	if (rsc_usage_avg <= wl_level) {
+	rsc_usage_avg_all += rsc_usage_sum / n_rscs_sched;
+
+	if (rsc_usage_avg_all / simtime <= (float)wl_level) {
 		float	overhead;
 
 		overhead = get_overhead_sm(rscs_req_sm) + get_overhead_sm(rscs_req_mem);
 
-		add_kernel(simtime + tb_len * (1 + overhead), rscs_req_sm);
+		add_kernel(simtime + tb_len * (1 + overhead), n_tbs, rscs_req_sm);
 		insert_kernel(simtime + 1, n_tbs, rscs_req_sm, rscs_req_mem, tb_len);
 	}
 }
@@ -157,8 +162,8 @@ clear_workload(void)
 
 			list_del_init(&kernel->list);
 			for (i = 0; i < n_rscs_sm; i++) {
-				assert(wl_rscs_used_sm[i] >= kernel->rscs_req_sm[i]);
-				wl_rscs_used_sm[i] -= kernel->rscs_req_sm[i];
+				assert(wl_rscs_used_sm[i] >= kernel->rscs_req_sm[i] * kernel->n_tbs);
+				wl_rscs_used_sm[i] -= kernel->rscs_req_sm[i] * kernel->n_tbs;
 			}
 
 			assert(n_kernels > 0);

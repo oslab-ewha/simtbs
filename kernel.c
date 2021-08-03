@@ -192,8 +192,9 @@ get_runtime_SA(kernel_t *kernel)
 		else
 			n_tbs = n_tbs_kernel;
 
-		for (i = 0; i < n_rscs_sm; i++)
-			rscs_sm[i] = (unsigned)floor(n_tbs / n_sms) * kernel->tb_rscs_req_sm[i];
+		for (i = 0; i < n_rscs_sm; i++) {
+			rscs_sm[i] = (unsigned)floor((float)n_tbs * kernel->tb_rscs_req_sm[i] / n_sms);
+		}
 		for (i = 0; i < n_rscs_mem; i++)
 			rscs_mem[i] = n_tbs * kernel->tb_rscs_req_mem[i];
 

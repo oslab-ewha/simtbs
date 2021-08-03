@@ -346,8 +346,8 @@ parse_overhead_sm(FILE *fp)
 			FATAL(2, "cannot load configuration: invalid overhead format: %s", trim(buf));
 		}
 
-		if (to_rsc_ratio < 0 || to_rsc_ratio > 1)
-			FATAL(2, "resource ratio should be within [0, 1]");
+		if (to_rsc_ratio < 0)
+			FATAL(2, "resource ratio should be >= 0");
 
 		if (n_scanned - 1 != n_rscs_sm) {
 			FATAL(2, "mismatched SM resource count for overhead: %u != %u", n_scanned - 1, n_rscs_sm);
