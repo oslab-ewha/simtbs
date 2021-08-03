@@ -519,7 +519,7 @@ save_conf(const char *fpath)
 	fprintf(fp, "%u\n", max_simtime);
 
 	fprintf(fp, "*sm\n");
-	fprintf(fp, "%u %u", n_sms, n_rscs_sched);
+	fprintf(fp, "%u %u %u", n_sms, n_rscs_sched, n_rscs_compute);
 
 	for (i = 0; i < n_rscs_sm; i++)
 		fprintf(fp, " %u", rscs_max_sm[i]);
