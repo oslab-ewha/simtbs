@@ -15,7 +15,7 @@ get_sm_by_rr(unsigned *req_rscs)
 	while (n_sm_tried < n_sms) {
 		sm_t	*sm;
 
-		sm = sm_last ? get_next_sm(sm_last): get_first_sm(); 
+		sm = get_next_sm_rr(sm_last);
 		if (is_sm_resource_available(sm, req_rscs)) {
 			sm_last = sm;
 			return sm;

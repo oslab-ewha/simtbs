@@ -18,7 +18,7 @@ get_sm_by_rrf(unsigned *req_rscs)
 		if (is_sm_resource_available(sm_last, req_rscs)) {
 			return sm_last;
 		}
-		sm_last = get_next_sm(sm_last);
+		sm_last = get_next_sm_rr(sm_last);
 		n_sm_tried++;
 	}
 	return NULL;

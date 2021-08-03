@@ -95,6 +95,7 @@ unsigned *get_tb_rscs_req_sm(tb_t *tb);
 
 sm_t *get_first_sm(void);
 sm_t *get_next_sm(sm_t *sm);
+sm_t *get_next_sm_rr(sm_t *sm);
 BOOL is_sm_resource_available(sm_t *sm, unsigned *rscs_req);
 float sm_get_max_rsc_usage(sm_t *sm, unsigned start, unsigned end, unsigned *rscs_req);
 

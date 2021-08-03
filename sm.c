@@ -187,6 +187,16 @@ get_next_sm(sm_t *sm)
 	return NULL;
 }
 
+sm_t *
+get_next_sm_rr(sm_t *sm)
+{
+	if (sm != NULL)
+		sm = get_next_sm(sm);
+	if (sm == NULL)
+		sm = get_first_sm();
+	return sm;
+}
+
 BOOL
 alloc_tb_on_sm(sm_t *sm, tb_t *tb)
 {
