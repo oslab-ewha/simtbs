@@ -19,9 +19,9 @@ get_sm_by_smk(unsigned *req_rscs)
 		if (is_sm_resource_available(sm, req_rscs)) {
 			float	usage_compute, usage_mem;
 
-			usage_compute = sm_get_max_rsc_usage(sm, 0, n_rscs_compute - 1, req_rscs);
-			usage_mem = sm_get_max_rsc_usage(sm, n_rscs_compute - 1, n_rscs_sm - 1,  req_rscs);
-			if (usage_compute <= 1 || usage_mem <= 1) {
+			usage_compute = sm_get_max_rsc_usage(sm, 0, n_rscs_compute, req_rscs);
+			usage_mem = sm_get_max_rsc_usage(sm, n_rscs_compute, n_rscs_sm,  req_rscs);
+			if (usage_compute <= 1 && usage_mem <= 1) {
 				sm_last = sm;
 				return sm;
 			}

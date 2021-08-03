@@ -19,7 +19,7 @@ get_sm_by_fua(unsigned *req_rscs)
 		if (is_sm_resource_available(sm, req_rscs)) {
 			float	usage_max;
 
-			usage_max = sm_get_max_rsc_usage(sm, 0, n_rscs_sm - 1, req_rscs);
+			usage_max = sm_get_max_rsc_usage(sm, 0, n_rscs_sm, req_rscs);
 			if (usage_max <= 1) {
 				sm_last = sm;
 				return sm;

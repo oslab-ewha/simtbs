@@ -102,7 +102,7 @@ gen_kernel(unsigned n_tbs, unsigned tb_len, unsigned *rscs_req_sm, unsigned *rsc
 	unsigned	i;
 
 	rsc_usage_sum = 0;
-	for (i = 0; i < n_rscs_sm; i++) {
+	for (i = 0; i < n_rscs_sched; i++) {
 		rsc_usage_sum += ((double)wl_rscs_used_sm[i] + rscs_req_sm[i] * n_tbs) / rscs_total_sm[i] * 100;
 	}
 	rsc_usage_avg = rsc_usage_sum / n_rscs_sched;

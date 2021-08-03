@@ -139,18 +139,18 @@ is_sm_resource_available(sm_t *sm, unsigned *rscs_req)
 
 	if (sm == NULL) {
 		if (rscs_req == NULL) {
-			for (i = 0; i < n_rscs_sm; i++)
+			for (i = 0; i < n_rscs_sched; i++)
 				if (rscs_used_sm[i] == rscs_total_sm[i])
 					return FALSE;
 		}
 		else {
-			for (i = 0; i < n_rscs_sm; i++)
+			for (i = 0; i < n_rscs_sched; i++)
 				if (rscs_used_sm[i] + rscs_req[i] > rscs_total_sm[i])
 					return FALSE;
 		}
 	}
 	else {
-		for (i = 0; i < n_rscs_sm; i++)
+		for (i = 0; i < n_rscs_sched; i++)
 			if (sm->rscs_used[i] + rscs_req[i] > rscs_max_sm[i])
 				return FALSE;
 	}
