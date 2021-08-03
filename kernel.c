@@ -248,6 +248,7 @@ report_kernel_stat(void)
 
 	if (n_kernels_stat > 0) {
 		printf("ANTT: %.3lf, %.3lf(no queuing delay)\n", antt_sum / n_kernels_stat, antt_sum_by_runtime / n_kernels_stat);
+		printf("STP: %.3f\n", (float)n_kernels_stat / simtime);
 		printf("# of kernels: %d\n", n_kernels_stat);
 	}
 }
