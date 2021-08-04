@@ -404,7 +404,7 @@ parse_kernel(FILE *fp)
 	char	buf[1024];
 
 	while (fgets(buf, 1024, fp)) {
-		unsigned	start_ts, n_tb, tb_duration;
+		unsigned	kernel_type, start_ts, n_tb, tb_duration;
 		unsigned	tb_rscs_req_sm[N_MAX_RSCS_SM], tb_rscs_req_mem[N_MAX_RSCS_MEM];
 		unsigned	n_scanned;
 
@@ -418,19 +418,19 @@ parse_kernel(FILE *fp)
 		if (wl_genmode && !wl_genmode_static_kernel)
 			continue;
 
-		n_scanned = sscanf(buf, "%u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u", &start_ts, &n_tb, &tb_duration,
+		n_scanned = sscanf(buf, "%u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u", &kernel_type, &start_ts, &n_tb, &tb_duration,
 				   &tb_rscs_req_sm[0], &tb_rscs_req_sm[1], &tb_rscs_req_sm[2], &tb_rscs_req_sm[3],
 				   &tb_rscs_req_sm[4], &tb_rscs_req_sm[5], &tb_rscs_req_sm[6], &tb_rscs_req_sm[7],
 				   &tb_rscs_req_sm[8], &tb_rscs_req_sm[9], &tb_rscs_req_sm[10], &tb_rscs_req_sm[11],
 				   &tb_rscs_req_mem[0], &tb_rscs_req_mem[1]);
-		if (n_scanned < 4) {
+		if (n_scanned < 5) {
 			FATAL(2, "cannot load configuration: invalid kernel format: %s", trim(buf));
 		}
 
 		if (start_ts == 0 || n_tb == 0 || tb_duration == 0) {
 			FATAL(2, "kernel start timestamp, TB count or duration cannot be 0: %s", trim(buf));
 		}
-		if (n_scanned != 3 + n_rscs_sm + n_rscs_mem) {
+		if (n_scanned != 4 + n_rscs_sm + n_rscs_mem) {
 			FATAL(2, "invalid resource count: %d resource count required", n_rscs_sm + n_rscs_mem);
 		}
 		if (n_rscs_sm < N_MAX_RSCS_SM) {
@@ -443,9 +443,9 @@ parse_kernel(FILE *fp)
 			memcpy(tb_rscs_req_mem, tb_rscs_req_sm + n_scanned_non_sm, sizeof(unsigned) * n_scanned_non_sm);
 		}
 		if (wl_genmode)
-			add_kernel_for_wl(n_tb, tb_rscs_req_sm, tb_rscs_req_mem, tb_duration);
+			add_kernel_for_wl(kernel_type, n_tb, tb_rscs_req_sm, tb_rscs_req_mem, tb_duration);
 		else
-			insert_kernel(start_ts, n_tb, tb_rscs_req_sm, tb_rscs_req_mem, tb_duration);
+			insert_kernel(kernel_type, start_ts, n_tb, tb_rscs_req_sm, tb_rscs_req_mem, tb_duration);
 	}
 }
 

@@ -33,12 +33,13 @@ setup_tbs(kernel_t *kernel)
 }
 
 static kernel_t *
-create_kernel(unsigned ts_cur, unsigned n_tb, unsigned *tb_rscs_req_sm, unsigned *tb_rscs_req_mem, unsigned tb_duration)
+create_kernel(unsigned kernel_type, unsigned ts_cur, unsigned n_tb, unsigned *tb_rscs_req_sm, unsigned *tb_rscs_req_mem, unsigned tb_duration)
 {
 	kernel_t	*kernel;
 	unsigned	i;
 
 	kernel = (kernel_t *)calloc(1, sizeof(kernel_t));
+	kernel->kernel_type = kernel_type;
 	kernel->ts_enter = ts_cur;
 	kernel->ts_start = 0;
 	kernel->n_tb = n_tb;
@@ -64,10 +65,11 @@ create_kernel(unsigned ts_cur, unsigned n_tb, unsigned *tb_rscs_req_sm, unsigned
 }
 
 void
-insert_kernel(unsigned start_ts, unsigned n_tb, unsigned *tb_rscs_req_sm, unsigned *tb_rscs_req_mem, unsigned tb_duration)
+insert_kernel(unsigned kernel_type, unsigned start_ts, unsigned n_tb, unsigned *tb_rscs_req_sm, unsigned *tb_rscs_req_mem, unsigned tb_duration)
 {
 	kernel_t	*kernel;
-	kernel = create_kernel(start_ts, n_tb, tb_rscs_req_sm, tb_rscs_req_mem, tb_duration);
+
+	kernel = create_kernel(kernel_type, start_ts, n_tb, tb_rscs_req_sm, tb_rscs_req_mem, tb_duration);
 	list_add_tail(&kernel->list_all, &kernels_all);
 	list_add_tail(&kernel->list_running, &kernels_pending);
 }
@@ -208,19 +210,19 @@ get_runtime_SA(kernel_t *kernel)
 }
 
 static BOOL
-show_kernel_stat(kernel_t *kernel, double *pantt, double *pantt_by_runtime)
+show_kernel_stat(kernel_t *kernel, double *pantt, double *pantt_qdelay)
 {
 	if (kernel->ts_end > 0) {
-		unsigned	turnaround_time = (kernel->ts_end - kernel->ts_enter + 1);
 		unsigned	runtime = (kernel->ts_end - kernel->ts_start + 1);
+		unsigned	runtime_qdelay = (kernel->ts_end - kernel->ts_enter + 1);
 		unsigned	runtime_SA = get_runtime_SA(kernel);
-		double		antt = 1.0 * turnaround_time / runtime_SA;
-		double		antt_by_runtime = 1.0 * runtime / runtime_SA;
+		double		antt = 1.0 * runtime / runtime_SA;
+		double		antt_qdelay = 1.0 * runtime_qdelay / runtime_SA;
 
 		if (verbose)
-			printf("kernel[%02d]: %.2f %.2f\n", kernel->no, antt, antt_by_runtime);
+			printf("kernel[%02d]: ANTT: %.2f(qdelay: %.2f)\n", kernel->no, antt, antt_qdelay);
 		*pantt = antt;
-		*pantt_by_runtime = antt_by_runtime;
+		*pantt_qdelay = antt_qdelay;
 		return TRUE;
 	}
 	return FALSE;
@@ -230,26 +232,40 @@ void
 report_kernel_stat(void)
 {
 	struct list_head	*lp;
-	double	antt_sum = 0, antt_sum_by_runtime = 0;
+	double	antt_sum = 0, antt_sum_qdelay = 0;
+	double	antt_sum_kts[N_MAX_KERNEL_TYPES] = { 0.0, };
 	unsigned	n_kernels_stat = 0;
+	unsigned	n_kernels_stat_kts[N_MAX_KERNEL_TYPES] = { 0 };
+	unsigned	i;
 
 	printf("kernel statistics:\n");
 
 	list_for_each (lp, &kernels_all) {
 		kernel_t	*kernel = list_entry(lp, kernel_t, list_all);
-		double		antt, antt_by_runtime;
+		double		antt, antt_qdelay;
 
-		if (show_kernel_stat(kernel, &antt, &antt_by_runtime)) {
+		if (show_kernel_stat(kernel, &antt, &antt_qdelay)) {
 			antt_sum += antt;
-			antt_sum_by_runtime += antt_by_runtime;
+			antt_sum_qdelay += antt_qdelay;
 			n_kernels_stat++;
+			if (kernel->kernel_type > 0 && kernel->kernel_type <= N_MAX_KERNEL_TYPES) {
+				antt_sum_kts[kernel->kernel_type - 1] += antt;
+				n_kernels_stat_kts[kernel->kernel_type - 1]++;
+			}
 		}
 	}
 
 	if (n_kernels_stat > 0) {
-		printf("ANTT: %.3lf, %.3lf(no queuing delay)\n", antt_sum / n_kernels_stat, antt_sum_by_runtime / n_kernels_stat);
-		printf("STP: %.3f\n", (float)n_kernels_stat / simtime);
-		printf("# of kernels: %d\n", n_kernels_stat);
+		printf("ANTT: %.3lf, %.3lf(with queuing delay)\n", antt_sum / n_kernels_stat, antt_sum_qdelay / n_kernels_stat);
+		printf("STP: %.4f(%u kernels)\n", (float)n_kernels_stat / simtime, n_kernels_stat);
+	}
+
+	for (i = 0; i < N_MAX_KERNEL_TYPES; i++) {
+		if (n_kernels_stat_kts[i] == 0)
+			continue;
+		printf("Kernel Type: %u\n", i + 1);
+		printf(" ANTT: %.3lf, STP: %.4f\n",
+		       antt_sum_kts[i] / n_kernels_stat_kts[i], (float)n_kernels_stat_kts[i] / simtime);
 	}
 }
 
@@ -264,7 +280,7 @@ save_conf_kernel_infos(FILE *fp)
 		kernel_t	*kernel = list_entry(lp, kernel_t, list_all);
 		unsigned	i;
 
-		fprintf(fp, "%u %u %u", kernel->ts_enter, kernel->n_tb, kernel->tb_duration);
+		fprintf(fp, "%u %u %u %u", kernel->kernel_type, kernel->ts_enter, kernel->n_tb, kernel->tb_duration);
 		for (i = 0; i < n_rscs_sm; i++)
 			fprintf(fp, " %u", kernel->tb_rscs_req_sm[i]);
 		for (i = 0; i < n_rscs_mem; i++)

@@ -16,6 +16,7 @@ typedef struct {
 } kernel_wl_t;
 
 typedef struct {
+	unsigned	kernel_type;
 	unsigned	n_tbs, tb_len;
 	unsigned	rscs_req_sm[N_MAX_RSCS_SM];
 	unsigned	rscs_req_mem[N_MAX_RSCS_MEM];
@@ -78,7 +79,7 @@ add_kernel(unsigned ts_end, unsigned n_tbs, unsigned *tb_rscs_req_sm)
 }
 
 void
-add_kernel_for_wl(unsigned n_tbs, unsigned *tb_rscs_req_sm, unsigned *tb_rscs_req_mem, unsigned tb_len)
+add_kernel_for_wl(unsigned kernel_type, unsigned n_tbs, unsigned *tb_rscs_req_sm, unsigned *tb_rscs_req_mem, unsigned tb_len)
 {
 	kernel_static_t	*kernel;
 	unsigned	i;
@@ -88,6 +89,7 @@ add_kernel_for_wl(unsigned n_tbs, unsigned *tb_rscs_req_sm, unsigned *tb_rscs_re
 	}
 
 	kernel = &kernels_static[n_kernels_static];
+	kernel->kernel_type = kernel_type;
 	kernel->n_tbs = n_tbs;
 	kernel->tb_len = tb_len;
 
@@ -100,7 +102,7 @@ add_kernel_for_wl(unsigned n_tbs, unsigned *tb_rscs_req_sm, unsigned *tb_rscs_re
 }
 
 static void
-gen_kernel(unsigned n_tbs, unsigned tb_len, unsigned *rscs_req_sm, unsigned *rscs_req_mem)
+gen_kernel(unsigned kernel_type, unsigned n_tbs, unsigned tb_len, unsigned *rscs_req_sm, unsigned *rscs_req_mem)
 {
 	double	rsc_usage_sum;
 	unsigned	i;
@@ -118,7 +120,7 @@ gen_kernel(unsigned n_tbs, unsigned tb_len, unsigned *rscs_req_sm, unsigned *rsc
 		overhead = get_overhead_sm(rscs_req_sm) + get_overhead_sm(rscs_req_mem);
 
 		add_kernel(simtime + tb_len * (1 + overhead), n_tbs, rscs_req_sm);
-		insert_kernel(simtime + 1, n_tbs, rscs_req_sm, rscs_req_mem, tb_len);
+		insert_kernel(kernel_type, simtime + 1, n_tbs, rscs_req_sm, rscs_req_mem, tb_len);
 	}
 }
 
@@ -128,7 +130,7 @@ gen_workload(void)
 	if (wl_genmode_static_kernel) {
 		kernel_static_t	*kernel = &kernels_static[get_rand(n_kernels_static) - 1];
 
-		gen_kernel(kernel->n_tbs, kernel->tb_len, kernel->rscs_req_sm, kernel->rscs_req_mem);
+		gen_kernel(kernel->kernel_type, kernel->n_tbs, kernel->tb_len, kernel->rscs_req_sm, kernel->rscs_req_mem);
 	}
 	else {
 		unsigned	n_tbs;
@@ -145,7 +147,7 @@ gen_workload(void)
 		for (i = 0; i < n_rscs_mem; i++)
 			rscs_req_mem[i] = get_rand(wl_n_rscs_mem_max[i] - wl_n_rscs_mem_min[i]) + wl_n_rscs_mem_min[i];
 
-		gen_kernel(n_tbs, tb_len, rscs_req_sm, rscs_req_mem);
+		gen_kernel(0, n_tbs, tb_len, rscs_req_sm, rscs_req_mem);
 	}
 }
 
