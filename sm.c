@@ -2,8 +2,8 @@
 
 static unsigned	rscs_used_sm[N_MAX_RSCS_SM];
 static unsigned	long long	rscs_used_all_sm[N_MAX_RSCS_SM];
-static unsigned tb_on_run;
-double total_tb_run = 0;
+static unsigned long long	n_tbs_done_total;
+
 unsigned	rscs_total_sm[N_MAX_RSCS_SM];
 unsigned	n_sms, n_rscs_sm, n_rscs_sched, n_rscs_compute, rscs_max_sm[N_MAX_RSCS_SM];
 
@@ -244,11 +244,12 @@ alloc_tb_on_sm(sm_t *sm, tb_t *tb)
 	return TRUE;
 }
 
-static void
+static unsigned
 run_tbs_on_sm(sm_t *sm, unsigned *rscs_used_saved_mem)
 {
 	unsigned	rscs_used_saved_sm[N_MAX_RSCS_SM];
 	struct list_head	*lp, *next;
+	unsigned	n_tbs_done = 0;
 	unsigned	i;
 
 	for (i = 0; i < n_rscs_sm; i++)
@@ -258,7 +259,6 @@ run_tbs_on_sm(sm_t *sm, unsigned *rscs_used_saved_mem)
 		tb_t	*tb = list_entry(lp, tb_t, list_sm);
 		unsigned	*mem_rscs_req = tb->kernel->tb_rscs_req_mem;
 		float	overhead;
-		tb_on_run++;
 
 		assert(tb->work_remained > 0);
 		overhead = get_overhead_sm(rscs_used_saved_sm) + get_overhead_mem(rscs_used_saved_mem);
@@ -276,8 +276,11 @@ run_tbs_on_sm(sm_t *sm, unsigned *rscs_used_saved_mem)
 			list_del_init(&tb->list_sm);
 			tb->sm = NULL;
 			complete_tb(tb);
+			n_tbs_done++;
 		}
 	}
+
+	return n_tbs_done;
 }
 
 void
@@ -285,21 +288,23 @@ run_tbs_on_all_sms(void)
 {
 	unsigned	rscs_used_saved_mem[N_MAX_RSCS_MEM];
 	struct list_head	*lp;
+	unsigned	n_tbs_done;
 	unsigned	i;
 
-	tb_on_run = 0;
+	n_tbs_done = 0;
 
 	for (i = 0; i < n_rscs_mem; i++)
 		rscs_used_saved_mem[i] = rscs_used_mem[i];
 
 	list_for_each (lp, &sms) {
 		sm_t	*sm = list_entry(lp, sm_t, list);
-		run_tbs_on_sm(sm, rscs_used_saved_mem);
+		n_tbs_done += run_tbs_on_sm(sm, rscs_used_saved_mem);
 	}
 	for (i = 0; i < n_rscs_sm; i++)
 		rscs_used_all_sm[i] += rscs_used_sm[i];
 
-	total_tb_run += tb_on_run;
+	n_tbs_done_total += n_tbs_done;
+
 	update_mem_usage();
 }
 
@@ -337,5 +342,5 @@ save_conf_sm_overheads(FILE *fp)
 void
 report_TB_stat(void)
 {
-	printf("TB: %.1f\n", total_tb_run / simtime);
+	printf("TB throughput: %.2f\n", (float)n_tbs_done_total / simtime);
 }
