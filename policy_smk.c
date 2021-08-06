@@ -23,7 +23,7 @@ get_sm_by_smk(unsigned *req_rscs)
 			usage_compute += sm_get_max_rsc_usage(NULL, 0, n_rscs_compute, req_rscs);
 			usage_noncom = sm_get_max_rsc_usage(sm, n_rscs_compute, n_rscs_sm,  NULL);
 			usage_noncom += sm_get_max_rsc_usage(NULL, n_rscs_compute, n_rscs_sm,  req_rscs);
-			if (usage_compute <= 1.2 && usage_noncom <= 1.2) {
+			if (usage_compute <= 1.5 && usage_noncom <= 1.5) {
 				sm_last = sm;
 				return sm;
 			}
