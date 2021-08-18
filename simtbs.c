@@ -33,7 +33,7 @@ extern policy_t	policy_smk;
 extern policy_t	policy_fua;
 
 static policy_t	*all_policies[] = {
-	&policy_rr, &policy_rrf, &policy_bfa, &policy_smk, &policy_fua
+	&policy_rr, &policy_rrf, &policy_bfa, &policy_dfa, &policy_smk, &policy_fua
 };
 
 extern BOOL is_kernel_all_done(void);
