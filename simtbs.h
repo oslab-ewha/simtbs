@@ -25,6 +25,7 @@
 
 #define ASSERT(cond)			do { assert(cond); } while (0)
 #define FATAL(exitcode, fmt, ...)	do { errmsg(fmt, ## __VA_ARGS__); exit(exitcode); } while (0)
+#define logB(x, base) log(x) / log(base)
 
 typedef int	BOOL;
 
@@ -63,6 +64,12 @@ typedef struct {
 	struct list_head	list_kernel;
 } tb_t;
 
+typedef struct tb_t_list
+{
+	tb_t *tb;
+	struct tb_t_list *next;
+} tb_t_list;
+
 typedef struct {
 	float	to_rsc_ratio;
 	float	tb_overheads[N_MAX_RSCS_SM];
@@ -94,6 +101,7 @@ void insert_kernel(unsigned kernel_type, unsigned start_ts, unsigned n_tb, unsig
 void add_kernel_for_wl(unsigned kernel_type, unsigned n_tb, unsigned *tb_rscs_req_sm, unsigned *tb_rscs_req_mem, unsigned tb_len);
 
 tb_t *get_unscheduled_tb(void);
+tb_t_list *preprocess_tb(void);
 unsigned *get_tb_rscs_req_sm(tb_t *tb);
 
 sm_t *get_first_sm(void);
