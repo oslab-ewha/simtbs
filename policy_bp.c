@@ -1,7 +1,7 @@
 #include "simtbs.h"
 
 /*
- * binary
+ * Load-based Time Sliding Bean Packing
  * exponential 하게 thread block 쭉 스캔 한 다음 크기로 정렬시킨 후, greedy하게 집어넣기
  */
 
@@ -21,7 +21,7 @@ BOOL is_empty_tb(void)
 }
 
 static void
-schedule_binary(void)
+schedule_bp(void)
 {
     int i;
     preprocess_tb();
@@ -61,6 +61,6 @@ schedule_binary(void)
     }
 }
 
-policy_t policy_binary = {
-    "binary",
-    schedule_binary};
+policy_t policy_bp = {
+    "bp",
+    schedule_bp};
