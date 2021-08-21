@@ -1,66 +1,64 @@
 #include "simtbs.h"
 
 /*
- * Load-based Time Sliding Bean Packing
- * exponential 하게 thread block 쭉 스캔 한 다음 크기로 정렬시킨 후, greedy하게 집어넣기
+ * Load-based Time Sliding Bin Packing(LTS-bp)
+ * Scan thread blocks exponentially, sort them by request amounts and insert as greedy
  */
 
-extern tb_t_list *tb_bucket_list;
+extern tb_t_list	*tb_bucket_list;
 
 BOOL is_empty_tb(void)
 {
-    unsigned i;
-    for (i = 0; i < rscs_max_sm[0]; i++)
-    {
-        if (!tb_bucket_list[i].tb)
-        {
-            return FALSE;
-        }
-    }
-    return TRUE;
+	unsigned	i;
+
+	for (i = 0; i < rscs_max_sm[0]; i++) {
+		if (!tb_bucket_list[i].tb) {
+			return FALSE;
+		}
+	}
+	return TRUE;
 }
 
 static void
 schedule_bp(void)
 {
-    int i;
-    preprocess_tb();
-    sm_t *sm = get_first_sm();
+	sm_t	*sm;
 
-    while (!is_empty_tb())
-    {
-        if (sm == NULL)
-        {
-            return;
-        }
+	preprocess_tb();
+	sm = get_first_sm();
 
-        unsigned sm_remain_rsc = rscs_max_sm[0] - sm->rscs_used[0];
-        unsigned bucket_index = logB(sm_remain_rsc, 2);
+	while (!is_empty_tb()) {
+		BOOL	goNextSM = TRUE;
+		unsigned	sm_remain_rsc;
+		unsigned	bucket_index;
+		int		i;
 
-        if (bucket_index > logB(rscs_max_sm[0], 2))
-        {
-            continue;
-        }
+		if (sm == NULL)
+			return;
 
-        BOOL goNextSM = TRUE;
-        for (i = bucket_index; i >= 0; i--)
-        {
-            if ((tb_bucket_list + i)->tb != NULL && *get_tb_rscs_req_sm((tb_bucket_list + i)->tb) <= sm_remain_rsc)
-            {
-                alloc_tb_on_sm(sm, (tb_bucket_list + i)->tb);
-                tb_bucket_list[i] = *tb_bucket_list[i].next;
-                goNextSM = FALSE;
-                break;
-            }
-        }
+		sm_remain_rsc = rscs_max_sm[0] - sm->rscs_used[0];
+		bucket_index = logB(sm_remain_rsc, 2);
 
-        if (goNextSM)
-        {
-            sm = get_next_sm(sm);
-        }
-    }
+		if (bucket_index > logB(rscs_max_sm[0], 2)) {
+			continue;
+		}
+
+		for (i = bucket_index; i >= 0; i--) {
+			if ((tb_bucket_list + i)->tb != NULL && *get_tb_rscs_req_sm((tb_bucket_list + i)->tb) <= sm_remain_rsc) {
+				alloc_tb_on_sm(sm, (tb_bucket_list + i)->tb);
+				tb_bucket_list[i] = *tb_bucket_list[i].next;
+				goNextSM = FALSE;
+				break;
+			}
+		}
+
+		if (goNextSM) {
+			sm = get_next_sm(sm);
+		}
+	}
 }
 
 policy_t policy_bp = {
-    "bp",
-    schedule_bp};
+	"bp",
+	schedule_bp
+};
